@@ -1038,7 +1038,7 @@
             ['MPLADS-2025-0291','School Renovation','Sanchi','₹22 L','Review','90%']
           ]
         },
-        superadmin: {
+        super: {
           title: 'Platform-wide Works Control Registry',
           subtitle: 'Administrative view: system coverage, data quality, workflow monitoring and access control.',
           cols: ['Module','Coverage','Data Sync','Status','Action'],
@@ -1431,6 +1431,158 @@ document.addEventListener('click', function(e){
    performWorkAction(btn.getAttribute('data-work-action'), btn.getAttribute('data-work-id') || 'General Work');
  }
 });
+</script>
+<style>
+.ns-ov{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:60;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s}.ns-ov.on{opacity:1}
+.ns-box{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:520px;max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25);transform:translateY(8px);transition:transform .18s}.ns-ov.on .ns-box{transform:none}.ns-box.wide{max-width:880px}
+.ns-in{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:14px}.ns-in:focus{outline:2px solid #16a34a;border-color:#16a34a}
+.ns-err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:6px}
+.ns-drawer{position:fixed;top:0;right:0;height:100%;width:400px;max-width:100%;background:#fff;z-index:55;box-shadow:-8px 0 30px rgba(0,0,0,.15);transform:translateX(105%);transition:transform .25s;display:flex;flex-direction:column}.ns-drawer.on{transform:none}
+.ns-n{padding:12px 16px;border-bottom:1px solid #f1f5f9;cursor:pointer;border-left:3px solid transparent}.ns-n:hover{background:#f0fdf4}.ns-n.u{border-left-color:#16a34a;background:#fafffa}
+.ns-act{font-size:12px;color:#15803d;font-weight:500;padding:2px 8px;border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;margin-right:4px}.ns-act:hover{background:#dcfce7}.ns-sec{color:#475569;border-color:#e2e8f0;background:#fff}
+#ns-toasts{position:fixed;bottom:20px;right:20px;z-index:80;display:flex;flex-direction:column;gap:8px}.ns-toast{padding:10px 14px;border-radius:10px;color:#fff;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,.2);animation:nsf .25s}
+.ns-fade{animation:nsf .25s}@keyframes nsf{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+<script>
+(()=>{
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const R={district:'District Authority',state:'State Authority',mospi:'MoSPI',mp:'MP',super:'Super Admin'};
+const STEPS={
+mp:['Recommended','Sanction Requested','Approved','Fund Released','Execution Started','Progress Update','Completed Asset'],
+district:['Work Approved','Agency Assigned','Tender','Execution','Inspection','Quality Verification','Completion Certificate'],
+state:['District Allocation','Execution','Progress','Delayed Works','Compliance','Approval'],
+mospi:['National Allocation','State Distribution','Implementation','Trend Analysis','Risk Observation','Review'],
+super:['Data Ingestion','Validation','Processing','AI Analysis','Dashboard Update','Audit Storage']};
+const VIS={super:'*',mospi:'*',state:['state','district'],district:['district'],mp:['mp']};
+const S={projects:{},notifs:{district:[],state:[],mospi:[],mp:[],super:[]},audit:[],events:[],n:1,resolved:0};
+const now=()=>Date.now(),dt=d=>new Date(now()+d*864e5).toISOString().slice(0,10);
+const ago=t=>{const m=Math.round((now()-t)/6e4);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':new Date(t).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})};
+const fmt=t=>new Date(t).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+let lastEl=null;
+/* ---------- state ---------- */
+function proj(id,name,x){if(!S.projects[id]){const c=cases.find(c=>c.id==='CASE'+id.slice(6));S.projects[id]={id,name:name||c?.work||id,loc:c?.location||'',status:c?.status||'Ongoing',progress:null,sub:{},tl:{mp:5,district:4,state:2,mospi:3,super:6},...x}}return S.projects[id]}
+function log({action,pid,status='Completed',text,role=currentRole}){const t=now();S.audit.unshift({id:S.n++,user:roleLabels[role].name,role,action,pid,ts:t,status});if(pid)S.events.unshift({pid,role,text:text||action,ts:t})}
+function notify(role,title,description,priority,pid,actionRequired){S.notifs[role].unshift({id:S.n++,title,description,priority,timestamp:now(),relatedProject:pid||null,actionRequired:actionRequired||null,read:false})}
+function adv(p,m,s){for(const r in m)p.tl[r]=Math.max(p.tl[r],m[r]);Object.assign(p.sub,s||{})}
+proj('MPLADS-2025-0142','Community Hall Construction',{loc:'Rampur Village',progress:62});
+proj('MPLADS-2025-0187','Road Repair Work',{loc:'Kolar Block',status:'Completed',progress:100,tl:{mp:7,district:7,state:6,mospi:6,super:6}});
+proj('MPLADS-2025-0211','Anganwadi Building',{loc:'Sehore',status:'Delayed',progress:38,tl:{mp:5,district:3,state:3,mospi:3,super:6}});
+const seed=(r,t,d,p,pid,a,m)=>{S.notifs[r].push({id:S.n++,title:t,description:d,priority:p,timestamp:now()-m*6e4,relatedProject:pid,actionRequired:a,read:false})};
+seed('district','Delayed work needs inspection','MPLADS-2025-0211 is 38% complete and 41 days beyond timeline.','High','MPLADS-2025-0211','Schedule Inspection',18);
+seed('district','Documents pending','BOQ and geo-tagged photos missing for MPLADS-2025-0142.','Medium','MPLADS-2025-0142','Request Documents',95);
+seed('district','Monthly review ready','September review pack is available.','Low',null,null,300);
+seed('state','District alert: Sehore','Cost variation flagged on MPLADS-2025-0142 (+32% vs peers).','High','MPLADS-2025-0142','Review Escalation',25);
+seed('state','Delay threshold crossed','3 districts exceed delayed-works threshold.','Medium','MPLADS-2025-0211',null,140);
+seed('mospi','National risk observation','High unit-cost cluster: Highmast lights, Shahjahanpur.','High','MPLADS-2025-0234','Review Escalation',40);
+seed('mospi','Trend report generated','Q2 utilisation trend analysis is ready.','Low',null,null,400);
+seed('mp','Work progress update','Community Hall (Rampur) reached 62% physical progress.','Low','MPLADS-2025-0142',null,60);
+seed('mp','Documents requested','Agency asked to submit BOQ for Community Hall.','Medium','MPLADS-2025-0142','Submit Documents',200);
+seed('super','Data sync warning','Document repository sync is 3 hrs behind.','Medium',null,'Resolve Data Issues',15);
+seed('super','Access request pending','District officer (Kolar) requests elevated access.','Medium',null,'Approve Access Request',70);
+[['super','Data Ingestion',null,'Completed',180],['super','AI Analysis Refresh',null,'Completed',150],['district','Work Progress Updated','MPLADS-2025-0142','Completed',120],['state','Compliance Check','MPLADS-2025-0187','Completed',90]].forEach(([r,a,p,s,m])=>{S.audit.push({id:S.n++,user:roleLabels[r].name,role:r,action:a,pid:p,ts:now()-m*6e4,status:s});if(p)S.events.push({pid:p,role:r,text:a,ts:now()-m*6e4})});
+/* ---------- toast ---------- */
+const tc=document.createElement('div');tc.id='ns-toasts';document.body.appendChild(tc);
+function toast(m,type='ok'){const d=document.createElement('div');d.className='ns-toast';d.style.background=type==='err'?'#b91c1c':type==='info'?'#1e40af':'#15803d';d.textContent=m;tc.appendChild(d);setTimeout(()=>{d.style.opacity=0;d.style.transition='opacity .3s';setTimeout(()=>d.remove(),300)},3200)}
+/* ---------- modal manager ---------- */
+const field=f=>`<label class="block text-xs font-medium text-gray-600 mt-3 mb-1">${f.l}${f.r?' *':''}</label>`+(f.t==='select'?`<select name="${f.k}" class="ns-in">${f.o.map(o=>`<option ${o===f.v?'selected':''}>${esc(o)}</option>`).join('')}</select>`:f.t==='textarea'?`<textarea name="${f.k}" rows="3" class="ns-in">${esc(f.v||'')}</textarea>`:`<input name="${f.k}" type="${f.t||'text'}" value="${esc(f.v||'')}" class="ns-in">`);
+const M={el:null,c:null,
+open(c){M.close(true);const el=document.createElement('div');el.id='ns-modal';el.className='ns-ov';
+el.innerHTML=`<div class="ns-box ${c.wide?'wide':''}" role="dialog" aria-modal="true"><div class="flex justify-between items-center mb-2"><h2 class="text-lg font-semibold">${esc(c.title)}</h2><button data-x class="text-gray-400 hover:text-gray-700 text-2xl leading-none" aria-label="Close">&times;</button></div><div class="ns-err hidden"></div><div>${c.html||''}${(c.fields||[]).map(field).join('')}</div><div class="flex justify-end gap-2 mt-5"><button data-x class="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">${c.cancel||'Cancel'}</button><button data-ok class="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm">${esc(c.ok||'Confirm')}</button></div></div>`;
+el.onclick=e=>{if(e.target===el||e.target.closest('[data-x]'))M.close()};$('[data-ok]',el).onclick=()=>M.ok();
+document.body.appendChild(el);M.el=el;M.c=c;requestAnimationFrame(()=>el.classList.add('on'));const f=$('input,select,textarea',el);f&&f.focus()},
+close(fast){const el=M.el;if(!el)return;M.el=null;M.c=null;el.removeAttribute('id');if(fast)el.remove();else{el.classList.remove('on');setTimeout(()=>el.remove(),180)}},
+err(m){const e=$('.ns-err',M.el);e.textContent=m;e.classList.remove('hidden')},
+ok(){const c=M.c,el=M.el,d={};let bad=null;(c.fields||[]).forEach(f=>{d[f.k]=$('[name="'+f.k+'"]',el).value.trim();if(f.r&&!d[f.k]&&!bad)bad=f.l});
+if(bad)return M.err('Please fill the required field: '+bad);const b=$('[data-ok]',el);b.disabled=true;b.textContent='Processing…';b.classList.add('opacity-60');
+setTimeout(()=>{try{c.onConfirm&&c.onConfirm(d)}catch(x){b.disabled=false;b.textContent=c.ok||'Confirm';b.classList.remove('opacity-60');return M.err(x.message)}if(M.el===el)M.close()},c.instant?0:450)}};
+/* ---------- timeline / trail / audit ---------- */
+const tl=(p,role=currentRole)=>'<div class="space-y-3">'+STEPS[role].map((s,i)=>{const n=p.tl[role],d=i<n,c=i===n;return `<div class="flex gap-3 items-start"><span class="mt-1 w-3 h-3 rounded-full flex-none ${d?'bg-green-500':c?'bg-blue-500 ring-4 ring-blue-100':'bg-gray-300'}"></span><div><div class="text-sm ${d||c?'font-medium':'text-gray-400'}">${s}${d?' ✓':''}</div>${c?`<div class="text-xs text-blue-700">${esc(p.sub[role]||'In progress')}</div>`:''}</div></div>`}).join('')+'</div>';
+function trail(id){const p=proj(id),ev=S.events.filter(e=>e.pid===id).slice(0,6);
+M.open({title:'Project Trail — '+id,ok:'View Audit',cancel:'Close',instant:1,onConfirm:()=>audit(id),
+html:`<div class="text-sm text-gray-600 mb-3">${esc(p.name)} · <b>${esc(p.status)}</b> · ${R[currentRole]} view</div>${tl(p)}<h3 class="text-sm font-semibold mt-4 mb-2">Recent activity</h3>${ev.length?ev.map(e=>`<div class="text-xs text-gray-600 py-1 border-t">${esc(e.text)} <span class="text-gray-400">· ${R[e.role]} · ${fmt(e.ts)}</span></div>`).join(''):'<p class="text-xs text-gray-400">No activity recorded yet.</p>'}`})}
+function audit(pid){const v=VIS[currentRole],rows=S.audit.filter(a=>(v==='*'||v.includes(a.role))&&(!pid||a.pid===pid));
+M.open({title:'Audit Trail'+(pid?' — '+pid:''),wide:1,ok:'Download CSV',cancel:'Close',instant:1,
+onConfirm:()=>{if(!rows.length)throw Error('Nothing to export.');const csv=[['User','Role','Action','Project','Time','Status'],...rows.map(a=>[a.user,R[a.role],a.action,a.pid||'',new Date(a.ts).toISOString(),a.status])].map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const u=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),l=document.createElement('a');l.href=u;l.download='nigranisetu_audit.csv';l.click();setTimeout(()=>URL.revokeObjectURL(u),500);toast('Audit exported')},
+html:rows.length?`<table class="w-full text-xs"><thead class="text-gray-500 bg-gray-50"><tr><th class="text-left p-2">User</th><th class="text-left">Role</th><th class="text-left">Action</th><th class="text-left">Project</th><th class="text-left">Time</th><th class="text-left">Status</th></tr></thead><tbody>${rows.map(a=>`<tr class="border-t"><td class="p-2">${esc(a.user)}</td><td>${R[a.role]}</td><td class="font-medium">${esc(a.action)}</td><td class="font-mono">${esc(a.pid||'—')}</td><td>${fmt(a.ts)}</td><td><span class="status-badge ${a.status==='Completed'?'bg-green-100 text-green-800':'bg-yellow-100 text-yellow-800'}">${esc(a.status)}</span></td></tr>`).join('')}</tbody></table>`:'<p class="text-sm text-gray-500 py-6 text-center">No audit entries visible for your role.</p>'})}
+/* ---------- action workflows ---------- */
+const PR=['High','Medium','Low'],P=v=>({k:'pid',l:'Project ID',r:1,v:v||''}),RM={'State Authority':'state','MoSPI':'mospi','Super Admin':'super'};
+const ACT={
+'Schedule Inspection':{ok:'Schedule',f:v=>[P(v),{k:'who',l:'Inspector Name',r:1},{k:'date',l:'Date',t:'date',r:1,v:dt(3)},{k:'pri',l:'Priority',t:'select',o:PR},{k:'note',l:'Remarks',t:'textarea'}],
+do(d){const p=proj(d.pid);p.status='Inspection Scheduled';adv(p,{},{district:'Inspection on '+d.date+' by '+d.who,state:'Inspection scheduled by district'});
+inspections.unshift({id:'INS-'+(100+S.n),work:p.name,location:p.loc||'—',recommendedDate:d.date,status:'Scheduled',priority:d.pri,reason:d.note||'Field verification'});
+log({action:'Inspection Scheduled',pid:d.pid,text:`Inspection scheduled for ${d.date} (${d.who}, ${d.pri})`});
+notify('state','Inspection scheduled',`${p.name}: visit on ${d.date} by ${d.who}.`,d.pri,d.pid);notify('mp','Inspection planned on your work',`${p.name} will be inspected on ${d.date}.`,'Medium',d.pid);
+notify('district','Inspection due',`Update outcome after visit on ${d.date}.`,d.pri,d.pid,'Update Inspection Status');return 'Inspection scheduled for '+d.pid}},
+'Request Documents':{ok:'Send Request',f:v=>[P(v),{k:'type',l:'Document Type',t:'select',o:['BOQ','Geo-tagged Photos','Utilisation Certificate','Completion Certificate','Sanction Order']},{k:'why',l:'Reason',t:'textarea',r:1},{k:'due',l:'Deadline',t:'date',r:1,v:dt(7)}],
+do(d){const p=proj(d.pid);p.status='Documents Requested';adv(p,{},{district:'Awaiting '+d.type+' by '+d.due});log({action:'Documents Requested',pid:d.pid,status:'Pending',text:`${d.type} requested by ${d.due}`});
+notify('mp','Documents requested',`${d.type} needed for ${p.name} by ${d.due}. ${d.why}`,'Medium',d.pid,'Submit Documents');notify('state','Document request raised',`${d.type} requested for ${p.name}.`,'Low',d.pid);return 'Document request sent for '+d.pid}},
+'Submit Documents':{f:v=>[P(v),{k:'doc',l:'Document Submitted',r:1},{k:'note',l:'Remarks',t:'textarea'}],
+do(d){const p=proj(d.pid);p.status='Under Review';adv(p,{},{district:'Documents received — verification pending'});log({action:'Documents Submitted',pid:d.pid,text:d.doc+' submitted'});notify('district','Documents received',`${d.doc} received for ${p.name}.`,'Medium',d.pid,'Mark Resolved');return 'Documents submitted'}},
+'Escalate Case':{ok:'Escalate',f:v=>[P(v),{k:'to',l:'Forward To',t:'select',o:Object.keys(RM)},{k:'why',l:'Reason',t:'textarea',r:1},{k:'pri',l:'Priority',t:'select',o:PR}],
+do(d){const p=proj(d.pid);p.status='Escalated to '+d.to;adv(p,{state:4},{state:'Escalation under review',mospi:'Escalated case observed'});log({action:'Case Escalated',pid:d.pid,status:'Pending',text:`Escalated to ${d.to}: ${d.why}`});
+notify(RM[d.to],'Case escalated',`${p.name}: ${d.why}`,d.pri,d.pid,'Review Escalation');return 'Case escalated to '+d.to}},
+'Review Escalation':{ok:'Record Decision',f:v=>[P(v),{k:'dec',l:'Decision',t:'select',o:['Approve Action','Return to District','Forward to MoSPI']},{k:'note',l:'Remarks',t:'textarea',r:1}],
+do(d){const p=proj(d.pid);p.status=d.dec==='Approve Action'?'Compliance Approved':d.dec==='Return to District'?'Returned to District':'Forwarded to MoSPI';if(d.dec==='Approve Action')adv(p,{state:6});else adv(p,{state:5},{state:d.dec});
+log({action:'Escalation Reviewed',pid:d.pid,text:d.dec+': '+d.note});notify('district','Escalation decision',`${p.name}: ${d.dec}. ${d.note}`,'Medium',d.pid);if(d.dec==='Forward to MoSPI')notify('mospi','Case forwarded by State',p.name,'High',d.pid,'Review Escalation');return 'Decision recorded: '+d.dec}},
+'Mark Resolved':{ok:'Mark Resolved',warn:'This closes the case and removes it from the Action Inbox.',f:v=>[P(v),{k:'note',l:'Resolution Remarks',t:'textarea',r:1}],
+do(d){const p=proj(d.pid);p.status='Resolved';adv(p,{district:6,state:5},{district:'Completion certificate pending'});const i=cases.findIndex(c=>c.id==='CASE'+d.pid.slice(6));if(i>=0){cases.splice(i,1);S.resolved++}
+log({action:'Case Resolved',pid:d.pid,text:'Resolved: '+d.note});notify('state','Case resolved',`${p.name} closed by district.`,'Low',d.pid);notify('mospi','Case resolved',`${p.name} closed.`,'Low',d.pid);return 'Case resolved'}},
+'Update Inspection Status':{f:v=>[{k:'ref',l:'Inspection ID',r:1,v},{k:'st',l:'Status',t:'select',o:['Scheduled','In Progress','Completed','Deferred']},{k:'note',l:'Remarks',t:'textarea'}],
+do(d){const i=inspections.find(x=>x.id===d.ref);if(!i)throw Error('Inspection ID not found: '+d.ref);i.status=d.st;const p=Object.values(S.projects).find(p=>p.name===i.work);
+if(p&&d.st==='Completed'){p.status='Inspected';adv(p,{district:5,state:3},{district:'Quality verification pending'})}log({action:'Inspection '+d.st,pid:p?.id||d.ref,text:`${d.ref} marked ${d.st}. ${d.note}`});
+if(p)notify('state','Inspection update',`${i.work}: ${d.st}`,'Low',p.id);return d.ref+' → '+d.st}},
+'Add New Project':{f:v=>[{k:'pid',l:'Project ID',r:1,v:'MPLADS-2025-0'+(300+S.n)},{k:'name',l:'Project Name',r:1},{k:'loc',l:'Location',r:1}],
+do(d){if(S.projects[d.pid])throw Error('Project ID already exists');proj(d.pid,d.name,{loc:d.loc,status:'Recommended',tl:{mp:1,district:0,state:0,mospi:0,super:1}});log({action:'Project Added',pid:d.pid});notify('district','New project registered',d.name,'Medium',d.pid);return 'Project registered'}}};
+const gen=n=>({f:v=>[{k:'pid',l:'Reference',r:1,v:v||''},{k:'dec',l:'Decision',t:'select',o:['Approved','Rejected','Deferred']},{k:'note',l:'Remarks',t:'textarea',r:1}],do(d){log({action:n,pid:d.pid,status:d.dec,text:n+': '+d.dec});return n+' — '+d.dec}});
+const AL={'Inspection Scheduled':'Schedule Inspection','Schedule New Inspection':'Schedule Inspection','Request Clarification':'Request Documents'};
+function run(title,ref){if(title==='Review Security Logs')return audit();title=AL[title]||title;const a=ACT[title]||gen(title);
+M.open({title,ok:a.ok||'Submit',fields:a.f(ref),html:a.warn?`<div class="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">${a.warn}</div>`:'',
+onConfirm(d){const m=a.do(d);refresh();toast(m);if(title==='Schedule Inspection'&&currentView==='case')navigate('inspections')}})}
+window.openActionDialog=(title,ref)=>{if(!ref){const tr=lastEl&&lastEl.closest&&lastEl.closest('tr');ref=currentView==='case'&&currentCase?currentCase.id.replace('CASE','MPLADS'):tr?.cells[0]?.textContent.trim()||''}run(title,ref)};
+window.scheduleInspectionFromCase=()=>run('Schedule Inspection',currentCase?.id.replace('CASE','MPLADS'));
+const rowAct=(a,id)=>{const isP=/^(MPLADS|WS)/.test(id);if(a==='Trail'||a==='View')return trail(id);if(a==='Audit')return audit();if(a==='Inspect')return run('Schedule Inspection',id);if(a==='Review')return run('Request Documents',id);if(isP)return trail(id);run(a+' — '+id,id)};
+/* ---------- notification engine ---------- */
+const dr=document.createElement('div');dr.id='ns-drawer';dr.className='ns-drawer';document.body.appendChild(dr);
+const PB={High:'bg-red-100 text-red-800',Medium:'bg-yellow-100 text-yellow-800',Low:'bg-gray-100 text-gray-700'};
+function bell(){const l=S.notifs[currentRole]||[],u=l.filter(n=>!n.read).length,b=$('#ns-badge');if(b){b.textContent=u>9?'9+':u;b.style.display=u?'flex':'none'}
+dr.innerHTML=`<div class="flex items-center justify-between px-4 py-3 border-b"><div><div class="font-semibold">Notifications</div><div class="text-xs text-gray-500">${R[currentRole]} · ${u} unread</div></div><div class="flex items-center gap-3"><button data-ns="read" class="text-xs text-green-700 hover:underline">Mark all read</button><button data-ns="x" aria-label="Close" class="text-2xl leading-none text-gray-400 hover:text-gray-700">&times;</button></div></div><div class="flex-1 overflow-y-auto">${l.length?l.map(n=>`<div class="ns-n ${n.read?'':'u'}" data-n="${n.id}"><div class="flex justify-between items-start gap-2"><div class="text-sm font-medium">${esc(n.title)}</div><span class="status-badge ${PB[n.priority]}">${n.priority}</span></div><div class="text-xs text-gray-600 mt-1">${esc(n.description)}</div><div class="flex justify-between items-center mt-2"><span class="text-[11px] text-gray-400">${ago(n.timestamp)}${n.relatedProject?' · '+n.relatedProject:''}</span><span class="ns-act">${n.actionRequired?esc(n.actionRequired):'View'}</span></div></div>`).join(''):'<p class="text-sm text-gray-400 text-center mt-16">You are all caught up.<br>No notifications for this role.</p>'}</div>`}
+const drawer=o=>{dr.classList.toggle('on',o);if(o)bell()};
+function openNotif(id){const n=S.notifs[currentRole].find(x=>x.id===id);if(!n)return;n.read=true;bell();drawer(false);
+M.open({title:n.title,ok:n.actionRequired||'Acknowledge',cancel:'Close',instant:1,onConfirm:()=>n.actionRequired?run(n.actionRequired,n.relatedProject||''):toast('Acknowledged'),
+html:`<div class="flex gap-2 mb-2"><span class="status-badge ${PB[n.priority]}">${n.priority} priority</span><span class="text-xs text-gray-400 self-center">${fmt(n.timestamp)}</span></div><p class="text-sm text-gray-700">${esc(n.description)}</p>${n.relatedProject?`<p class="text-xs mt-3 text-gray-500">Related project: <span class="font-mono">${n.relatedProject}</span> <button class="ns-act ns-sec" data-a="Trail" data-id="${n.relatedProject}">Open trail</button></p>`:''}<p class="text-xs mt-3 text-gray-500">Action required: <b>${esc(n.actionRequired||'None')}</b></p>`})}
+window.toggleNotifications=()=>drawer(!dr.classList.contains('on'));
+/* ---------- view hooks ---------- */
+function emptyRow(tb,show,msg){let e=$('.ns-empty',tb);if(!show){e&&e.remove();return}if(!e){e=tb.insertRow();e.className='ns-empty';e.innerHTML=`<td colspan="99" class="text-center text-sm text-gray-400 py-8">${msg}</td>`}}
+const CATS={Cost:/cost/i,Delay:/delay/i,Similarity:/similar|fragment|multiple/i,Compliance:/document|complian/i};
+function post(v){const a=$('#content-area');a.classList.remove('ns-fade');void a.offsetWidth;a.classList.add('ns-fade');
+const tb=$('table',a);
+if(v==='works'&&tb){const hs=$$('thead th',tb).map(h=>h.textContent.trim()),si=hs.indexOf('Status'),pi=hs.indexOf('Progress'),L=hs.length-1;
+$$('tbody tr',tb).forEach(tr=>{const c=tr.cells,id=c[0].textContent.trim(),p=S.projects[id];if(p){if(si>=0)c[si].textContent=p.status;if(pi>=0&&p.progress!=null)c[pi].textContent=p.progress+'%'}
+const t=c[L].textContent.trim();c[L].innerHTML=`<button class="ns-act" data-a="${esc(t)}" data-id="${esc(id)}">${esc(t)}</button>`+(/^(MPLADS|WS)/.test(id)&&t!=='View'?`<button class="ns-act ns-sec" data-a="Trail" data-id="${esc(id)}">Trail</button>`:'')})}
+if(v==='inbox'){if(!cases.length&&tb)emptyRow($('tbody',tb),true,'Inbox is clear — all cases resolved.');const [cs,ss]=$$('select',a);const f=()=>{let n=0;$$('tbody tr:not(.ns-empty)',tb).forEach(tr=>{const c=cases.find(x=>x.id===tr.cells[0].textContent.trim());const ok=c&&(cs.value.startsWith('All')||CATS[cs.value]?.test(c.reason))&&(ss.value.startsWith('All')||c.severity===ss.value.toLowerCase());tr.style.display=ok?'':'none';n+=ok?1:0});emptyRow($('tbody',tb),!n,'No cases match the selected filters.')};cs&&(cs.onchange=f);ss&&(ss.onchange=f)}
+if(v==='case'&&currentCase){const h=$$('h3',a).find(x=>x.textContent.includes('Work Lifecycle'));if(h){const id=currentCase.id.replace('CASE','MPLADS');h.parentElement.innerHTML=`<div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Work Lifecycle Timeline · ${R[currentRole]}</h3><button class="ns-act" data-a="Trail" data-id="${id}">Trail & activity</button></div>`+tl(proj(id,currentCase.work))}}
+const ib=$('#nav-inbox .bg-red-500');if(ib){ib.dataset.b=ib.dataset.b||ib.textContent;ib.textContent=Math.max(0,ib.dataset.b-S.resolved)}
+bell()}
+const _rv=window.renderView;window.renderView=v=>{_rv(v);post(v)};
+function refresh(){if(currentView)window.renderView(currentView);bell()}
+const _dl=window.doLogin,_lo=window.logout,_dr=window.downloadReport;
+window.doLogin=()=>{_dl();bell();toast('Signed in as '+roleLabels[currentRole].name,'info')};
+window.logout=()=>M.open({title:'Sign out?',ok:'Sign out',instant:1,html:'<p class="text-sm text-gray-600">You will be returned to the login screen.</p>',onConfirm:()=>{drawer(false);_lo()}});
+window.downloadReport=()=>{try{_dr();log({action:'Report Downloaded',pid:null});toast('Report downloaded')}catch(e){toast('Report failed: '+e.message,'err')}};
+/* ---------- init ---------- */
+$('#notification-drawer')?.remove();$('#action-modal')?.remove();
+const bb=$('#app header button[onclick*="toggleNotifications"]');if(bb){bb.removeAttribute('onclick');bb.id='ns-bell';bb.className='relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg';bb.setAttribute('aria-label','Notifications');const d=$('span',bb);d.id='ns-badge';d.className='absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center'}
+const so=$('#app aside button[onclick="logout()"]');if(so){const b=document.createElement('button');b.dataset.ns='audit';b.className='mt-2 mr-3 text-green-700 hover:underline';b.textContent='Audit trail';so.before(b)}
+document.addEventListener('click',e=>lastEl=e.target,true);
+document.addEventListener('click',e=>{const t=e.target;if(t.closest('#ns-bell'))return drawer(!dr.classList.contains('on'));
+const n=t.closest('[data-n]');if(n)return openNotif(+n.dataset.n);const a=t.closest('.ns-act[data-a]');if(a)return rowAct(a.dataset.a,a.dataset.id);
+const s=t.closest('[data-ns]');if(s){const k=s.dataset.ns;if(k==='x')drawer(false);if(k==='read'){S.notifs[currentRole].forEach(n=>n.read=true);bell()}if(k==='audit')audit();return}
+if(dr.classList.contains('on')&&!t.closest('#ns-drawer')&&!t.closest('#ns-modal'))drawer(false)});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(M.el)M.close();else drawer(false)});
+document.addEventListener('input',e=>{const i=e.target;if(!i.matches||!i.matches('input[placeholder^="Search"]'))return;const tb=$('#content-area tbody');if(!tb)return;const q=i.value.toLowerCase();let n=0;$$('tr:not(.ns-empty)',tb).forEach(r=>{const m=r.textContent.toLowerCase().includes(q);r.style.display=m?'':'none';n+=m});emptyRow(tb,!n,'No matching records.')});
+window.NS={S,M,toast,notify,log,audit,trail,run};bell();
+})();
 </script>
 </body>
 </html>
