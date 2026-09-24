@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NigraniSetu | AI-Powered MPLADS Monitoring</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { 50:'#f0f4f8',100:'#d9e2ec',200:'#bcccdc',300:'#9fb3c8',400:'#829ab1',500:'#627d98',600:'#486581',700:'#334e68',800:'#243b53',900:'#102a43' },
+            goi: { green:'#006400', saffron:'#FF9933', navy:'#000080' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .sidebar-item.active { background: #e6f0e6; color: #006400; border-right: 3px solid #006400; }
+    .status-badge { @apply px-2.5 py-0.5 rounded-full text-xs font-medium; }
+    .card { @apply bg-white rounded-xl border border-gray-200 shadow-sm; }
+    #map { height: 280px; border-radius: 0.75rem; }
+    .timeline-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .hidden-view { display: none !important; }
+    .nav-link:hover { background: #f0f7f0; }
+    .goi-header { background: linear-gradient(90deg, #000080 0%, #006400 100%); }
+  </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+.dashboard-clickable{
+ cursor:pointer;
+ transition:all .2s ease;
+}
+.dashboard-clickable:hover{
+ transform:translateY(-2px);
+ box-shadow:0 8px 20px rgba(0,0,0,.08);
+}
+.notification-item{
+ cursor:pointer;
+ padding:10px;
+ border-radius:10px;
+}
+.notification-item:hover{
+ background:#f0f7f0;
+}
+.map-card{
+ min-height:280px;
+}
+</style>
+
+<style>
+    .role-dashboard-card{cursor:pointer;transition:all .2s ease;}
+    .role-dashboard-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.08);}
+    .dashboard-notification{cursor:pointer;border-radius:12px;padding:10px;transition:all .2s ease;}
+    .dashboard-notification:hover{background:#f0fdf4;}
+    .map-panel{height:280px;border-radius:0.75rem;overflow:hidden;background:#f3f4f6;}
+</style>
+
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- ==================== LOGIN ==================== -->
+  <div id="login-page" class="min-h-screen flex">
+    <div class="w-1/2 goi-header flex flex-col justify-center items-center text-white p-12">
+      <div class="text-center">
+        <div class="flex items-center justify-center gap-3 mb-6">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem" class="h-16 w-16 bg-white rounded-full p-1" />
+          <div>
+            <h1 class="text-3xl font-bold tracking-tight">NigraniSetu</h1>
+            <p class="text-sm opacity-90">MPLADS Monitoring & Decision Support Platform</p>
+          </div>
+        </div>
+        <p class="text-lg opacity-90 max-w-md">Unified monitoring platform for transparent development, compliance and evidence-based verification.</p>
+        <div class="mt-10 text-left space-y-3 text-sm opacity-80">
+          <p>✓ Work Lifecycle Tracking</p>
+          <p>✓ Guideline Compliance Checks</p>
+          <p>✓ Project Progress Monitoring</p>
+          <p>✓ Evidence Based Review & Action Tracking</p>
+        </div>
+        <p class="mt-12 text-xs opacity-60">Ministry of Statistics and Programme Implementation<br/>Government of India</p>
+      </div>
+    </div>
+    <div class="w-1/2 flex items-center justify-center p-12 bg-white">
+      <div class="w-full max-w-md">
+        <h2 class="text-2xl font-semibold text-navy-900 mb-1">Sign in to NigraniSetu</h2>
+        <p class="text-gray-500 text-sm mb-8">Select your role for demo access</p>
+        
+        <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+        <select id="role-select" class="w-full border border-gray-300 rounded-lg px-4 py-3 mb-6 focus:ring-2 focus:ring-green-600 focus:border-green-600">
+          <option value="district">District Authority (District Admin)</option>
+          <option value="state">State Authority</option>
+          <option value="mospi">MoSPI Central Ministry</option>
+          <option value="mp">Hon'ble Member of Parliament</option>
+          <option value="super">Super Admin</option>
+        </select>
+
+        <label class="block text-sm font-medium text-gray-700 mb-2">Demo User</label>
+        <input type="text" value="siya.sharma@mp.gov.in" class="w-full border border-gray-300 rounded-lg px-4 py-3 mb-4" readonly />
+        <input type="password" value="demo1234" class="w-full border border-gray-300 rounded-lg px-4 py-3 mb-6" readonly />
+
+        <button onclick="doLogin()" class="w-full bg-green-700 hover:bg-green-800 text-white font-medium py-3 rounded-lg transition">
+          Enter Dashboard
+        </button>
+        <p class="text-xs text-gray-400 mt-4 text-center">Demo credentials pre-filled. All roles available for exploration.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APP ==================== -->
+  <div id="app" class="hidden min-h-screen flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full z-20">
+      <div class="p-4 border-b border-gray-100 flex items-center gap-2">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" class="h-9 w-9" />
+        <div>
+          <div class="font-bold text-navy-900 text-sm leading-tight">NigraniSetu</div>
+          <div class="text-[10px] text-gray-500">MPLADS Monitoring</div>
+        </div>
+      </div>
+      <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto" id="sidebar-nav">
+        <!-- populated by JS -->
+      </nav>
+      <div class="p-4 border-t border-gray-100 text-xs text-gray-500">
+        <div class="font-medium text-navy-800" id="user-role-label">District Authority</div>
+        <div id="user-name">Siya Sharma</div>
+        <button onclick="logout()" class="mt-2 text-red-600 hover:underline">Sign out</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 ml-64">
+      <!-- Top bar -->
+      <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10">
+        <div class="flex items-center gap-4">
+          <h1 class="text-lg font-semibold text-navy-900" id="page-title">Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <input type="text" placeholder="Search projects, locations, contractors..." class="border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm w-80 focus:ring-2 focus:ring-green-600" />
+            <svg class="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+          <button onclick="toggleNotifications()" class="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg;">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-green-700 text-white flex items-center justify-center text-sm font-medium">SS</div>
+            <div class="text-sm">
+              <div class="font-medium" id="header-user">Siya Sharma</div>
+              <div class="text-xs text-gray-500" id="header-role">District Admin</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="p-6" id="content-area">
+        <!-- Dynamic content -->
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ==================== MOCK DATA ====================
+    const cases = [
+      { id: 'CASE-2025-0142', work: 'Community Hall Construction', location: 'Rampur, Sehore', amount: 2500000, status: 'Ongoing', reason: 'Unusual cost variation (+32% vs similar works)', severity: 'high', category: 'Cost', mp: 'Shri Alok Sharma', state: 'Madhya Pradesh', district: 'Sehore', ida: 'SEHORE_IDA', workId: 'WS/MP182-2024-178', recommended: 1890000, sanctioned: 2500000, disbursed: 1250000, delayDays: 45, similarCount: 8, missingDocs: ['BOQ', 'Geo-tag photo'] },
+      { id: 'CASE-2025-0187', work: 'CC Road from Godhan Raju house', location: 'Janjgir-Champa', amount: 1500000, status: 'Physical Inspection', reason: 'Delay beyond normative timeline', severity: 'medium', category: 'Delay', mp: 'KAMLESH JANGDE', state: 'Chhattisgarh', district: 'Janjgir-Champa', ida: 'JANJGIR_IDA', workId: 'WS/MP18278-134668', recommended: 1500000, sanctioned: 1500000, disbursed: 900000, delayDays: 62, similarCount: 12, missingDocs: [] },
+      { id: 'CASE-2025-0211', work: 'MID DAY Meal Shed - Govt Primary School', location: 'Faridkot', amount: 300000, status: 'Work Completed', reason: 'Multiple similar works in same school cluster', severity: 'medium', category: 'Similarity', mp: 'SARABJEET SINGH KHALSA', state: 'Punjab', district: 'Faridkot', ida: 'FARIDKOT_IDA', workId: 'WS/MP18152-133691', recommended: 300000, sanctioned: 300000, disbursed: 300000, delayDays: 0, similarCount: 9, missingDocs: ['Completion certificate'] },
+      { id: 'CASE-2025-0234', work: 'Highmast LED Lights - 156 units', location: 'Shahjahanpur', amount: 37908000, status: 'Work Completed', reason: 'High unit cost vs state average', severity: 'high', category: 'Cost', mp: 'Shri Arun Kumar Sagar', state: 'Uttar Pradesh', district: 'Shahjahanpur', ida: 'SHAHJAHANPUR_IDA', workId: 'WS/MP492-134984', recommended: 28000000, sanctioned: 37908000, disbursed: 37908000, delayDays: 12, similarCount: 5, missingDocs: [] },
+      { id: 'CASE-2025-0256', work: 'Solar Street Lights installation', location: 'Mandi', amount: 14805, status: 'Ongoing', reason: 'Fragmented small works - possible splitting', severity: 'low', category: 'Pattern', mp: 'Kangana Ranaut', state: 'Himachal Pradesh', district: 'Mandi', ida: 'MANDI_IDA', workId: 'WS/MP18328-138242', recommended: 14805, sanctioned: 14805, disbursed: 0, delayDays: 8, similarCount: 15, missingDocs: ['Vendor invoice'] },
+      { id: 'CASE-2025-0278', work: 'PCC Road - Forbesganj Block', location: 'Araria', amount: 448127, status: 'Work Completed', reason: 'Missing documentation for final payment', severity: 'medium', category: 'Compliance', mp: 'Pradeep Kumar Singh', state: 'Bihar', district: 'Araria', ida: 'ARARIA_IDA', workId: 'WS/MP418-133409', recommended: 450000, sanctioned: 448127, disbursed: 448127, delayDays: 0, similarCount: 6, missingDocs: ['UC', 'Photo evidence'] },
+      { id: 'CASE-2025-0291', work: 'Community Bhavan - Belavatagi', location: 'Dharwad', amount: 497185, status: 'Physical Inspection', reason: 'Similar community hall within 2km radius', severity: 'medium', category: 'Similarity', mp: 'Pralhad Venkatesh Joshi', state: 'Karnataka', district: 'Dharwad', ida: 'DHARWAD_IDA', workId: 'WS/MP620-133166', recommended: 500000, sanctioned: 497185, disbursed: 250000, delayDays: 28, similarCount: 3, missingDocs: [] },
+      { id: 'CASE-2025-0305', work: 'RO System & Water Cooler - Primary School', location: 'Faridkot', amount: 84500, status: 'Work Completed', reason: 'Unit cost 18% above district average', severity: 'low', category: 'Cost', mp: 'SARABJEET SINGH KHALSA', state: 'Punjab', district: 'Faridkot', ida: 'FARIDKOT_IDA', workId: 'WS/MP18152-133696', recommended: 72000, sanctioned: 84500, disbursed: 84500, delayDays: 0, similarCount: 7, missingDocs: [] }
+    ];
+
+    const works = [
+      { id: 'WS/MP182-2024-178', name: 'Community Hall Construction', location: 'Rampur, Sehore', state: 'Madhya Pradesh', amount: 2500000, status: 'Ongoing', mp: 'Shri Alok Sharma', category: 'Community centers' },
+      { id: 'WS/MP18278-134668', name: 'CC Road - Amit Sahu house', location: 'Janjgir-Champa', state: 'Chhattisgarh', amount: 1500000, status: 'Physical Inspection', mp: 'KAMLESH JANGDE', category: 'Roads' },
+      { id: 'WS/MP18152-133691', name: 'MID DAY Meal Shed', location: 'Faridkot', state: 'Punjab', amount: 300000, status: 'Completed', mp: 'SARABJEET SINGH KHALSA', category: 'School infrastructure' },
+      { id: 'WS/MP492-134984', name: '156 LED Highmast Lights', location: 'Shahjahanpur', state: 'Uttar Pradesh', amount: 37908000, status: 'Completed', mp: 'Shri Arun Kumar Sagar', category: 'Lighting' },
+      { id: 'WS/MP345-134140', name: 'Road concreting - Thrikkaruva GP', location: 'Kollam', state: 'Kerala', amount: 293492, status: 'Completed', mp: 'Shri NK Premachandran', category: 'Roads' },
+      { id: 'WS/MP620-133307', name: 'Community Hall - Tadakod', location: 'Dharwad', state: 'Karnataka', amount: 398955, status: 'Completed', mp: 'Pralhad Venkatesh Joshi', category: 'Community centers' },
+      { id: 'WS/MP672-136731', name: 'Highmast light - Gosavi Ghat', location: 'Nagpur', state: 'Maharashtra', amount: 963514, status: 'Completed', mp: 'Nitin Jairam Gadkari', category: 'Lighting' },
+      { id: 'WS/MP18328-138242', name: 'Solar Light - Khuiri Dom', location: 'Mandi', state: 'Himachal Pradesh', amount: 14805, status: 'Ongoing', mp: 'Kangana Ranaut', category: 'Lighting' },
+      { id: 'WS/MP777-136655', name: 'Interlocking road - Chipiyana', location: 'Gautam Buddha Nagar', state: 'Uttar Pradesh', amount: 995219, status: 'Completed', mp: 'Mahesh Sharma', category: 'Roads' },
+      { id: 'WS/MP691-140096', name: 'RCC Benches - Bodwad', location: 'Jalgaon', state: 'Maharashtra', amount: 2974718, status: 'Completed', mp: 'Smt Raksha Nikhil Khadse', category: 'Public amenities' }
+    ];
+
+    const inspections = [
+      { id: 'INS-089', work: 'Community Hall Construction', location: 'Rampur, Sehore', recommendedDate: '2025-09-18', status: 'Recommended', priority: 'High', reason: 'Cost variation' },
+      { id: 'INS-091', work: 'CC Road - Janjgir', location: 'Janjgir-Champa', recommendedDate: '2025-09-20', status: 'Scheduled', priority: 'Medium', reason: 'Delay' },
+      { id: 'INS-094', work: 'Highmast Lights cluster', location: 'Shahjahanpur', recommendedDate: '2025-09-22', status: 'Recommended', priority: 'High', reason: 'Unit cost anomaly' },
+      { id: 'INS-097', work: 'Community Bhavan', location: 'Dharwad', recommendedDate: '2025-09-25', status: 'Pending', priority: 'Medium', reason: 'Proximity similarity' }
+    ];
+
+    let currentRole = 'district';
+    let currentView = 'dashboard';
+    let currentCase = null;
+    let mapInstance = null;
+
+    // ==================== NAV CONFIG ====================
+    const navConfig = {
+      district: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home' },
+        { id: 'inbox', label: 'Action Inbox', icon: 'inbox', badge: 8 },
+        { id: 'works', label: 'Works', icon: 'list' },
+        { id: 'inspections', label: 'Inspection Planner', icon: 'calendar' },
+        { id: 'review', label: 'Monthly Review', icon: 'chart' },
+        
+      ],
+      state: [
+        { id: 'dashboard', label: 'State Dashboard', icon: 'home' },
+        { id: 'inbox', label: 'Action Inbox', icon: 'inbox', badge: 24 },
+        { id: 'works', label: 'Works', icon: 'list' },
+        { id: 'inspections', label: 'Inspections', icon: 'calendar' },
+        { id: 'review', label: 'Monthly Review', icon: 'chart' },
+        
+      ],
+      mospi: [
+        { id: 'dashboard', label: 'National Dashboard', icon: 'home' },
+        { id: 'inbox', label: 'National Attention', icon: 'inbox', badge: 112 },
+        { id: 'works', label: 'All Works', icon: 'list' },
+        { id: 'inspections', label: 'Inspection Overview', icon: 'calendar' },
+        { id: 'review', label: 'National Review', icon: 'chart' },
+        
+      ],
+      mp: [
+        { id: 'dashboard', label: 'My Constituency', icon: 'home' },
+        { id: 'works', label: 'My Works', icon: 'list' },
+        { id: 'review', label: 'Progress Report', icon: 'chart' }
+      ],
+      super: [
+        { id: 'dashboard', label: 'Platform Health', icon: 'home' },
+        { id: 'users', label: 'User Management', icon: 'users' },
+        { id: 'data-quality', label: 'Data Quality', icon: 'check' },
+        
+      ]
+    };
+
+    const roleLabels = {
+      district: { title: 'District Authority', name: 'Siya Sharma', sub: 'District Admin · Sehore' },
+      state: { title: 'State Authority', name: 'Rajesh Kumar', sub: 'State Nodal Officer · Madhya Pradesh' },
+      mospi: { title: 'MoSPI Central', name: 'Dr. Priya Mehta', sub: 'Joint Secretary · MoSPI' },
+      mp: { title: "Hon'ble MP", name: 'Shri Alok Sharma', sub: 'Bhopal Constituency' },
+      super: { title: 'Super Admin', name: 'System Admin', sub: 'NigraniSetu Platform' }
+    };
+
+    // ==================== ICONS ====================
+    function icon(name) {
+      const icons = {
+        home: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>',
+        inbox: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>',
+        list: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
+        calendar: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
+        chart: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>',
+        cpu: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>',
+        users: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>',
+        check: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+      };
+      return `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icons[name] || icons.home}</svg>`;
+    }
+
+    // ==================== AUTH ====================
+    function doLogin() {
+      currentRole = document.getElementById('role-select').value;
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      const r = roleLabels[currentRole];
+      document.getElementById('user-role-label').textContent = r.title;
+      document.getElementById('user-name').textContent = r.name;
+      document.getElementById('header-user').textContent = r.name;
+      document.getElementById('header-role').textContent = r.sub;
+      buildSidebar();
+      navigate('dashboard');
+    }
+
+    function logout() {
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login-page').classList.remove('hidden');
+    }
+
+    function buildSidebar() {
+      const nav = document.getElementById('sidebar-nav');
+      nav.innerHTML = navConfig[currentRole].map(item => `
+        <button onclick="navigate('${item.id}')" id="nav-${item.id}" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-green-50 transition relative">
+          ${icon(item.icon)}
+          <span>${item.label}</span>
+          ${item.badge ? `<span class="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">${item.badge}</span>` : ''}
+        </button>
+      `).join('');
+    }
+
+    function navigate(view) {
+      currentView = view;
+      document.querySelectorAll('[id^="nav-"]').forEach(el => el.classList.remove('active', 'bg-green-50', 'text-green-800', 'font-medium'));
+      const active = document.getElementById('nav-' + view);
+      if (active) {
+        active.classList.add('active', 'bg-green-50', 'text-green-800', 'font-medium');
+      }
+      const titles = { dashboard: 'Dashboard', inbox: 'Action Inbox', works: 'Works Registry', inspections: 'Inspection Planner', review: 'Monthly Review', users: 'User Management', 'data-quality': 'Data Quality', case: 'Case Detail' };
+      document.getElementById('page-title').textContent = titles[view] || 'NigraniSetu';
+      renderView(view);
+    }
+
+    // ==================== RENDERERS ====================
+    function renderView(view) {
+      const area = document.getElementById('content-area');
+      if (view === 'dashboard') {
+        if (currentRole === 'district') area.innerHTML = renderDistrictDashboard();
+        else if (currentRole === 'state') area.innerHTML = renderStateDashboard();
+        else if (currentRole === 'mospi') area.innerHTML = renderMoSPIDashboard();
+        else if (currentRole === 'mp') area.innerHTML = renderMPDashboard();
+        else area.innerHTML = renderSuperDashboard();
+        setTimeout(initCharts, 50); setTimeout(initAllMaps, 120);
+      } else if (view === 'inbox') area.innerHTML = renderInbox();
+      else if (view === 'works') area.innerHTML = renderWorks();
+      else if (view === 'inspections') area.innerHTML = renderInspections();
+      else if (view === 'review') area.innerHTML = renderReview();
+      
+      else if (view === 'users') area.innerHTML = renderUsers();
+      else if (view === 'data-quality') area.innerHTML = renderDataQuality();
+      else if (view === 'case') area.innerHTML = renderCaseDetail(currentCase);
+    }
+
+    // ---------- DISTRICT DASHBOARD (matches image style) ----------
+    function renderDistrictDashboard() {
+      return `
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h2 class="text-xl font-semibold text-navy-900">Welcome back, Siya!</h2>
+            <p class="text-sm text-gray-500">Monitor, analyse and ensure transparent development through MPLADS.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-sm text-gray-500 mb-2">Tue, 9 Sept 2025</div>
+            <button onclick="openActionDialog('Add New Project')" class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm">+ Add New Project</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700">👥</div>
+              <div><div class="text-sm font-medium">Total Projects</div><div class="text-2xl font-bold text-navy-900">248</div></div>
+            </div>
+            <div class="mt-2 text-xs text-green-600">↑ 12% from last year</div>
+          </div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">✅</div>
+              <div><div class="text-sm font-medium">Completed</div><div class="text-2xl font-bold text-navy-900">136</div></div>
+            </div>
+            <div class="mt-2 text-xs text-green-600">↑ 8% from last year</div>
+          </div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">🕒</div>
+              <div><div class="text-sm font-medium">Ongoing</div><div class="text-2xl font-bold text-navy-900">82</div></div>
+            </div>
+            <div class="mt-2 text-xs text-green-600">↑ 5% from last year</div>
+          </div>
+          <div onclick="navigate('inbox')" class="card p-4 role-dashboard-card">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700">⏰</div>
+              <div><div class="text-sm font-medium text-red-700">Delayed</div><div class="text-2xl font-bold text-navy-900">30</div></div>
+            </div>
+            <div class="mt-2 text-xs text-red-600">↑ 15% from last year</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 col-span-1">
+            <h3 class="font-semibold text-sm mb-3">Project Locations</h3>
+            <div id="district-main-map" class="map-panel"></div>
+            <div class="flex gap-3 mt-2 text-xs">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span> Completed</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Ongoing</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span> Delayed</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Duplicate Risk</span>
+            </div>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Project Status Overview</h3>
+            <div class="flex items-center justify-center">
+              <canvas id="statusChart" width="200" height="200"></canvas>
+            </div>
+            <div class="mt-2 space-y-1 text-xs">
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Completed</span><span>136 (54.8%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Ongoing</span><span>82 (33.1%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Delayed</span><span>30 (12.1%)</span></div>
+            </div>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-semibold text-sm">Fund Utilization</h3>
+              <select class="text-xs border rounded px-2 py-1"><option>This Year</option></select>
+            </div>
+            <canvas id="fundChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 border-l-4 border-red-500">
+            <div class="flex items-start gap-2">
+              <span class="text-red-500 text-lg">⚠</span>
+              <div>
+                <div class="font-medium text-sm text-red-700">Duplicate Detection</div>
+                <div class="text-xs text-gray-600 mt-1">3 potential duplicate projects found</div>
+                <button onclick="navigate('inbox')" class="text-xs text-green-700 mt-2 hover:underline">View Duplicates →</button>
+              </div>
+            </div>
+          </div>
+          <div class="card p-4 border-l-4 border-blue-500">
+            <div class="flex items-start gap-2">
+              <span class="text-blue-500 text-lg">📊</span>
+              <div>
+                <div class="font-medium text-sm text-blue-700">Cost Overrun Alert</div>
+                <div class="text-xs text-gray-600 mt-1">5 projects have exceeded estimated cost by more than 25%</div>
+                <button onclick="navigate('inbox')" class="text-xs text-green-700 mt-2 hover:underline">View Details →</button>
+              </div>
+            </div>
+          </div>
+          <div class="card p-4 border-l-4 border-green-500">
+            <div class="flex items-start gap-2">
+              <span class="text-green-500 text-lg">📄</span>
+              <div>
+                <div class="font-medium text-sm text-green-700">Pending Documents</div>
+                <div class="text-xs text-gray-600 mt-1">12 projects have missing BOQ/Tender documents</div>
+                <button onclick="navigate('inbox')" class="text-xs text-green-700 mt-2 hover:underline">View Projects →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-semibold text-sm">Recent Projects</h3>
+              <button onclick="navigate('works')" class="text-xs text-green-700 hover:underline">View All →</button>
+            </div>
+            <table class="w-full text-sm">
+              <thead class="text-xs text-gray-500 border-b">
+                <tr><th class="text-left py-2">#</th><th class="text-left">Project Name</th><th class="text-left">Location</th><th class="text-left">Estimated Cost</th><th class="text-left">Status</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-50"><td class="py-2.5">1</td><td>Community Hall</td><td>Rampur</td><td>₹25,00,000</td><td><span class="status-badge bg-blue-100 text-blue-800">Ongoing</span></td><td><button onclick="openCase('CASE-2025-0142')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">2</td><td>Road Construction</td><td>Kolar</td><td>₹40,00,000</td><td><span class="status-badge bg-green-100 text-green-800">Completed</span></td><td><button onclick="openCase('CASE-2025-0187')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">3</td><td>Anganwadi Building</td><td>Sehore</td><td>₹18,00,000</td><td><span class="status-badge bg-red-100 text-red-800">Delayed</span></td><td><button onclick="openCase('CASE-2025-0211')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">4</td><td>Water Supply Scheme</td><td>Berasia</td><td>₹35,00,000</td><td><span class="status-badge bg-blue-100 text-blue-800">Ongoing</span></td><td><button onclick="openCase('CASE-2025-0234')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr><td class="py-2.5">5</td><td>School Renovation</td><td>Sanchi</td><td>₹22,00,000</td><td><span class="status-badge bg-pink-100 text-pink-800">Duplicate Risk</span></td><td><button onclick="openCase('CASE-2025-0291')" class="text-green-700 text-xs">View</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-semibold text-sm">Latest Notifications</h3>
+              <button onclick="navigate('inbox')" class="text-xs text-green-700 hover:underline">View All →</button>
+            </div>
+            <div class="space-y-3">
+              <div onclick="openCase('CASE-2025-0142')" class="flex gap-3 text-sm dashboard-notification">
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">⚠</div>
+                <div><div class="font-medium">Potential duplicate project detected</div><div class="text-xs text-gray-500">Project ID: MPLADS-2024-178 · 2 hours ago</div></div>
+              </div>
+              <div onclick="openCase('CASE-2025-0234')" class="flex gap-3 text-sm dashboard-notification">
+                <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 flex-shrink-0">📊</div>
+                <div><div class="font-medium">Cost overrun alert</div><div class="text-xs text-gray-500">Road Construction - Kolar (32% overrun) · 5 hours ago</div></div>
+              </div>
+              <div onclick="navigate('works')" class="flex gap-3 text-sm dashboard-notification">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">📄</div>
+                <div><div class="font-medium">New tender document uploaded</div><div class="text-xs text-gray-500">Water Supply Scheme - Berasia · 1 day ago</div></div>
+              </div>
+              <div onclick="navigate('review')" class="flex gap-3 text-sm dashboard-notification">
+                <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">✓</div>
+                <div><div class="font-medium">Project marked as completed</div><div class="text-xs text-gray-500">Community Hall - Rampur · 2 days ago</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- STATE DASHBOARD ----------
+    function renderStateDashboard() {
+      return `
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h2 class="text-xl font-semibold text-navy-900">Welcome back, Rajesh!</h2>
+            <p class="text-sm text-gray-500">Monitor state-wide MPLADS execution, district performance and pending reviews.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-sm text-gray-500 mb-2">Tue, 9 Sept 2025</div>
+            <button onclick="navigate('review')" class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm">View State Review</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700">🏢</div><div><div class="text-sm font-medium">Total Works</div><div class="text-2xl font-bold text-navy-900">4,812</div></div></div><div class="mt-2 text-xs text-green-600">Across 52 districts</div></div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">₹</div><div><div class="text-sm font-medium">Fund Sanctioned</div><div class="text-2xl font-bold text-navy-900">₹487 Cr</div></div></div><div class="mt-2 text-xs text-green-600">68% utilised</div></div>
+          <div onclick="navigate('inspections')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">📝</div><div><div class="text-sm font-medium">Pending Inspections</div><div class="text-2xl font-bold text-navy-900">43</div></div></div><div class="mt-2 text-xs text-yellow-600">11 high priority</div></div>
+          <div onclick="navigate('inbox')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700">⚠</div><div><div class="text-sm font-medium text-red-700">Open Review Cases</div><div class="text-2xl font-bold text-navy-900">24</div></div></div><div class="mt-2 text-xs text-red-600">Requires district follow-up</div></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 col-span-1">
+            <h3 class="font-semibold text-sm mb-3">District Performance Map</h3>
+            <div id="state-main-map" class="map-panel"></div>
+            <div class="flex gap-3 mt-2 text-xs">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span> Healthy</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Active</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span> Inspection Due</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> High Attention</span>
+            </div>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">District Status Overview</h3>
+            <div class="flex items-center justify-center"><canvas id="stateStatusChart" width="200" height="200"></canvas></div>
+            <div class="mt-2 space-y-1 text-xs">
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Completed</span><span>2,946 (61.2%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Ongoing</span><span>1,422 (29.6%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Delayed</span><span>444 (9.2%)</span></div>
+            </div>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Fund Utilization</h3><select class="text-xs border rounded px-2 py-1"><option>This Year</option></select></div>
+            <canvas id="stateFundChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 border-l-4 border-red-500"><div class="flex items-start gap-2"><span class="text-red-500 text-lg">⚠</span><div><div class="font-medium text-sm text-red-700">High Attention Districts</div><div class="text-xs text-gray-600 mt-1">Sehore, Bhopal and Jabalpur need immediate follow-up.</div><button onclick="navigate('inbox')" class="text-xs text-green-700 mt-2 hover:underline">Review Cases →</button></div></div></div>
+          <div class="card p-4 border-l-4 border-blue-500"><div class="flex items-start gap-2"><span class="text-blue-500 text-lg">📊</span><div><div class="font-medium text-sm text-blue-700">Agency Performance</div><div class="text-xs text-gray-600 mt-1">5 agencies show recurring cost or delay issues.</div><button onclick="navigate('works')" class="text-xs text-green-700 mt-2 hover:underline">Open Registry →</button></div></div></div>
+          <div class="card p-4 border-l-4 border-green-500"><div class="flex items-start gap-2"><span class="text-green-500 text-lg">📄</span><div><div class="font-medium text-sm text-green-700">Pending Documents</div><div class="text-xs text-gray-600 mt-1">41 projects need compliance documents from districts.</div><button onclick="navigate('inbox')" class="text-xs text-green-700 mt-2 hover:underline">View Pending →</button></div></div></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">District Snapshot</h3><button onclick="navigate('works')" class="text-xs text-green-700 hover:underline">View All →</button></div>
+            <table class="w-full text-sm">
+              <thead class="text-xs text-gray-500 border-b"><tr><th class="text-left py-2">District</th><th class="text-left">Works</th><th class="text-left">Utilisation</th><th class="text-left">Status</th><th></th></tr></thead>
+              <tbody>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Sehore</td><td>248</td><td>72%</td><td><span class="status-badge bg-yellow-100 text-yellow-800">Attention</span></td><td><button onclick="navigate('inbox')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Bhopal</td><td>312</td><td>81%</td><td><span class="status-badge bg-blue-100 text-blue-800">Active</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Indore</td><td>289</td><td>75%</td><td><span class="status-badge bg-green-100 text-green-800">Healthy</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Jabalpur</td><td>201</td><td>69%</td><td><span class="status-badge bg-red-100 text-red-800">Delayed</span></td><td><button onclick="navigate('inbox')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr><td class="py-2.5">Gwalior</td><td>176</td><td>78%</td><td><span class="status-badge bg-green-100 text-green-800">Healthy</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">Open</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Latest Notifications</h3><button onclick="navigate('inbox')" class="text-xs text-green-700 hover:underline">View All →</button></div>
+            <div class="space-y-3">
+              <div onclick="navigate('inbox')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">⚠</div><div><div class="font-medium">Escalation from Sehore district</div><div class="text-xs text-gray-500">8 cases require state intervention · 1 hour ago</div></div></div>
+              <div onclick="navigate('inspections')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 flex-shrink-0">📍</div><div><div class="font-medium">Inspection backlog increased</div><div class="text-xs text-gray-500">11 inspections pending across 3 districts · 4 hours ago</div></div></div>
+              <div onclick="navigate('review')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">📄</div><div><div class="font-medium">Monthly state summary generated</div><div class="text-xs text-gray-500">September dashboard updated · 1 day ago</div></div></div>
+              <div onclick="navigate('works')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">✓</div><div><div class="font-medium">District submitted compliance records</div><div class="text-xs text-gray-500">Bhopal and Indore uploads verified · 2 days ago</div></div></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- MoSPI DASHBOARD ----------
+    function renderMoSPIDashboard() {
+      return `
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h2 class="text-xl font-semibold text-navy-900">Welcome back, Dr. Priya!</h2>
+            <p class="text-sm text-gray-500">Monitor national MPLADS implementation, utilisation and high-attention states.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-sm text-gray-500 mb-2">Tue, 9 Sept 2025</div>
+            <button onclick="navigate('review')" class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm">Open National Review</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700">🇮🇳</div><div><div class="text-sm font-medium">Total Works</div><div class="text-2xl font-bold text-navy-900">1,24,580</div></div></div><div class="mt-2 text-xs text-green-600">Nationwide monitoring</div></div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">₹</div><div><div class="text-sm font-medium">Allocated Limit</div><div class="text-2xl font-bold text-navy-900">₹8,318 Cr</div></div></div><div class="mt-2 text-xs text-blue-600">All India fund view</div></div>
+          <div onclick="navigate('review')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">📈</div><div><div class="text-sm font-medium">Fund Utilised</div><div class="text-2xl font-bold text-navy-900">₹1,247 Cr</div></div></div><div class="mt-2 text-xs text-yellow-600">National disbursed amount</div></div>
+          <div onclick="navigate('inbox')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700">🚨</div><div><div class="text-sm font-medium text-red-700">Open Attention Cases</div><div class="text-2xl font-bold text-navy-900">1,842</div></div></div><div class="mt-2 text-xs text-red-600">Requires national attention</div></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 col-span-1">
+            <h3 class="font-semibold text-sm mb-3">India Monitoring Map</h3>
+            <div id="mospi-main-map" class="map-panel"></div>
+            <div class="flex gap-3 mt-2 text-xs">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span> Healthy</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Active</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span> Watchlist</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> High Attention</span>
+            </div>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Project Status Overview</h3>
+            <div class="flex items-center justify-center"><canvas id="mospiStatusChart" width="200" height="200"></canvas></div>
+            <div class="mt-2 space-y-1 text-xs">
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Completed</span><span>68,420 (55.0%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Ongoing</span><span>41,210 (33.1%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Delayed</span><span>14,950 (12.0%)</span></div>
+            </div>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">National Fund Utilization</h3><select class="text-xs border rounded px-2 py-1"><option>This Year</option></select></div>
+            <canvas id="nationalFundChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 border-l-4 border-red-500"><div class="flex items-start gap-2"><span class="text-red-500 text-lg">⚠</span><div><div class="font-medium text-sm text-red-700">Top Attention States</div><div class="text-xs text-gray-600 mt-1">UP, Bihar and Maharashtra have highest unresolved cases.</div><button onclick="navigate('inbox')" class="text-xs text-green-700 mt-2 hover:underline">View Cases →</button></div></div></div>
+          <div class="card p-4 border-l-4 border-blue-500"><div class="flex items-start gap-2"><span class="text-blue-500 text-lg">📊</span><div><div class="font-medium text-sm text-blue-700">Cost & Delay Trends</div><div class="text-xs text-gray-600 mt-1">412 cost alerts and 378 delay patterns flagged this month.</div><button onclick="navigate('review')" class="text-xs text-green-700 mt-2 hover:underline">Open Review →</button></div></div></div>
+          <div class="card p-4 border-l-4 border-green-500"><div class="flex items-start gap-2"><span class="text-green-500 text-lg">📄</span><div><div class="font-medium text-sm text-green-700">Data & Documents</div><div class="text-xs text-gray-600 mt-1">Data freshness is healthy, but 184 compliance documents are pending.</div><button onclick="navigate('works')" class="text-xs text-green-700 mt-2 hover:underline">Open Registry →</button></div></div></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">State Snapshot</h3><button onclick="navigate('works')" class="text-xs text-green-700 hover:underline">View All →</button></div>
+            <table class="w-full text-sm">
+              <thead class="text-xs text-gray-500 border-b"><tr><th class="text-left py-2">State</th><th class="text-left">Works</th><th class="text-left">Attention Cases</th><th class="text-left">Utilisation</th><th></th></tr></thead>
+              <tbody>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Uttar Pradesh</td><td>18,202</td><td>312</td><td>71%</td><td><button onclick="navigate('inbox')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Bihar</td><td>14,980</td><td>287</td><td>66%</td><td><button onclick="navigate('inbox')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Maharashtra</td><td>11,524</td><td>198</td><td>76%</td><td><button onclick="navigate('works')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">Madhya Pradesh</td><td>4,812</td><td>156</td><td>68%</td><td><button onclick="navigate('review')" class="text-green-700 text-xs">Open</button></td></tr>
+                <tr><td class="py-2.5">Tamil Nadu</td><td>6,473</td><td>97</td><td>81%</td><td><button onclick="navigate('works')" class="text-green-700 text-xs">Open</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Latest Notifications</h3><button onclick="navigate('inbox')" class="text-xs text-green-700 hover:underline">View All →</button></div>
+            <div class="space-y-3">
+              <div onclick="navigate('inbox')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">⚠</div><div><div class="font-medium">High attention spike detected</div><div class="text-xs text-gray-500">UP crossed 300 open cases · 2 hours ago</div></div></div>
+              <div onclick="navigate('review')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 flex-shrink-0">📊</div><div><div class="font-medium">National review pack updated</div><div class="text-xs text-gray-500">Monthly performance data refreshed · 5 hours ago</div></div></div>
+              <div onclick="navigate('works')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">📄</div><div><div class="font-medium">State upload received</div><div class="text-xs text-gray-500">Maharashtra & Rajasthan data synced · 1 day ago</div></div></div>
+              <div onclick="navigate('review')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">✓</div><div><div class="font-medium">Central report published</div><div class="text-xs text-gray-500">September fund flow summary issued · 2 days ago</div></div></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- MP DASHBOARD ----------
+    function renderMPDashboard() {
+      return `
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h2 class="text-xl font-semibold text-navy-900">Welcome back, Shri Alok Sharma!</h2>
+            <p class="text-sm text-gray-500">Track constituency works, completion status and local development progress.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-sm text-gray-500 mb-2">Tue, 9 Sept 2025</div>
+            <button onclick="navigate('review')" class="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm">View Progress Report</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700">🏗</div><div><div class="text-sm font-medium">Total Projects</div><div class="text-2xl font-bold text-navy-900">248</div></div></div><div class="mt-2 text-xs text-green-600">Across constituency</div></div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">✅</div><div><div class="text-sm font-medium">Completed</div><div class="text-2xl font-bold text-navy-900">190</div></div></div><div class="mt-2 text-xs text-green-600">Assets delivered</div></div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">🕒</div><div><div class="text-sm font-medium">Ongoing</div><div class="text-2xl font-bold text-navy-900">42</div></div></div><div class="mt-2 text-xs text-yellow-600">Under execution</div></div>
+          <div onclick="navigate('works')" class="card p-4 role-dashboard-card"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700">⏳</div><div><div class="text-sm font-medium text-red-700">Pending</div><div class="text-2xl font-bold text-navy-900">16</div></div></div><div class="mt-2 text-xs text-red-600">Need follow-up</div></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 col-span-1">
+            <h3 class="font-semibold text-sm mb-3">Constituency Development Map</h3>
+            <div id="mp-main-map" class="map-panel"></div>
+            <div class="flex gap-3 mt-2 text-xs">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span> Completed</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Ongoing</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span> Review Required</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Pending</span>
+            </div>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Project Status Overview</h3>
+            <div class="flex items-center justify-center"><canvas id="mpStatusChart" width="200" height="200"></canvas></div>
+            <div class="mt-2 space-y-1 text-xs">
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Completed</span><span>190 (76.6%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Ongoing</span><span>42 (16.9%)</span></div>
+              <div class="flex justify-between"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Pending</span><span>16 (6.5%)</span></div>
+            </div>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Fund Utilization</h3><select class="text-xs border rounded px-2 py-1"><option>This Year</option></select></div>
+            <canvas id="mpFundChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 border-l-4 border-red-500"><div class="flex items-start gap-2"><span class="text-red-500 text-lg">⚠</span><div><div class="font-medium text-sm text-red-700">Constituency Watchlist</div><div class="text-xs text-gray-600 mt-1">16 works need closer follow-up across Rampur and Berasia.</div><button onclick="navigate('works')" class="text-xs text-green-700 mt-2 hover:underline">View Works →</button></div></div></div>
+          <div class="card p-4 border-l-4 border-blue-500"><div class="flex items-start gap-2"><span class="text-blue-500 text-lg">📊</span><div><div class="font-medium text-sm text-blue-700">Fund Progress</div><div class="text-xs text-gray-600 mt-1">₹6.41 Cr disbursed against sanctioned ₹9.82 Cr.</div><button onclick="navigate('review')" class="text-xs text-green-700 mt-2 hover:underline">View Report →</button></div></div></div>
+          <div class="card p-4 border-l-4 border-green-500"><div class="flex items-start gap-2"><span class="text-green-500 text-lg">📄</span><div><div class="font-medium text-sm text-green-700">Documents & Updates</div><div class="text-xs text-gray-600 mt-1">Latest work photos and tender updates are available.</div><button onclick="navigate('works')" class="text-xs text-green-700 mt-2 hover:underline">Open Registry →</button></div></div></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Recent Projects</h3><button onclick="navigate('works')" class="text-xs text-green-700 hover:underline">View All →</button></div>
+            <table class="w-full text-sm">
+              <thead class="text-xs text-gray-500 border-b"><tr><th class="text-left py-2">#</th><th class="text-left">Project</th><th class="text-left">Location</th><th class="text-left">Amount</th><th class="text-left">Status</th><th></th></tr></thead>
+              <tbody>
+                <tr class="border-b border-gray-50"><td class="py-2.5">1</td><td>Community Hall</td><td>Rampur</td><td>₹25 L</td><td><span class="status-badge bg-blue-100 text-blue-800">Ongoing</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">2</td><td>Road Construction</td><td>Kolar</td><td>₹40 L</td><td><span class="status-badge bg-green-100 text-green-800">Completed</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">3</td><td>Anganwadi Building</td><td>Sehore</td><td>₹18 L</td><td><span class="status-badge bg-red-100 text-red-800">Delayed</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr class="border-b border-gray-50"><td class="py-2.5">4</td><td>Water Supply Scheme</td><td>Berasia</td><td>₹35 L</td><td><span class="status-badge bg-blue-100 text-blue-800">Ongoing</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">View</button></td></tr>
+                <tr><td class="py-2.5">5</td><td>School Renovation</td><td>Sanchi</td><td>₹22 L</td><td><span class="status-badge bg-yellow-100 text-yellow-800">Review</span></td><td><button onclick="navigate('works')" class="text-green-700 text-xs">View</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card p-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="font-semibold text-sm">Latest Notifications</h3><button onclick="navigate('review')" class="text-xs text-green-700 hover:underline">View All →</button></div>
+            <div class="space-y-3">
+              <div onclick="navigate('works')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">⚠</div><div><div class="font-medium">Project follow-up needed</div><div class="text-xs text-gray-500">16 pending constituency works updated · 3 hours ago</div></div></div>
+              <div onclick="navigate('review')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 flex-shrink-0">📊</div><div><div class="font-medium">Fund report refreshed</div><div class="text-xs text-gray-500">Latest utilisation statement available · 7 hours ago</div></div></div>
+              <div onclick="navigate('works')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">📄</div><div><div class="font-medium">New project evidence uploaded</div><div class="text-xs text-gray-500">Rampur work progress photographs synced · 1 day ago</div></div></div>
+              <div onclick="navigate('review')" class="flex gap-3 text-sm dashboard-notification"><div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">✓</div><div><div class="font-medium">Project completed</div><div class="text-xs text-gray-500">Community asset handed over in Kolar · 2 days ago</div></div></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- SUPER ADMIN ----------
+    function renderSuperDashboard() {
+      return `
+        <div class="mb-4">
+          <h2 class="text-xl font-semibold text-navy-900">Platform Operations Dashboard</h2>
+          <p class="text-sm text-gray-500">Software health, data pipeline monitoring, security and service performance metrics</p>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="card p-4"><div class="text-xs text-gray-500">System Availability</div><div class="text-2xl font-bold text-green-700">99.97%</div><div class="text-xs mt-2">Last 30 days uptime</div></div>
+          <div class="card p-4"><div class="text-xs text-gray-500">API Response Time</div><div class="text-2xl font-bold">180 ms</div><div class="text-xs mt-2">Average latency</div></div>
+          <div class="card p-4"><div class="text-xs text-gray-500">Active Users</div><div class="text-2xl font-bold">1,248</div><div class="text-xs mt-2">Across all authorities</div></div>
+          <div class="card p-4"><div class="text-xs text-gray-500">Data Sync Status</div><div class="text-2xl font-bold text-green-700">Healthy</div><div class="text-xs mt-2">Last sync: 2 hrs ago</div></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4"><h3 class="font-semibold mb-3">Application Monitoring</h3><ul class="text-sm space-y-2"><li>✓ Frontend Services Online</li><li>✓ Backend APIs Operational</li><li>✓ Authentication Service Active</li><li>✓ Notification Service Active</li></ul></div>
+          <div class="card p-4"><h3 class="font-semibold mb-3">AI Pipeline Status</h3><ul class="text-sm space-y-2"><li>✓ Rule Engine Running</li><li>✓ Similarity Engine Available</li><li>✓ Anomaly Jobs Completed</li><li>○ Model Retraining Scheduled</li></ul></div>
+          <div class="card p-4"><h3 class="font-semibold mb-3">Database Metrics</h3><ul class="text-sm space-y-2"><li>Records Indexed: 1.24 Lakh+</li><li>Storage Used: 68%</li><li>Backup Status: Successful</li><li>Query Performance: Normal</li></ul></div>
+        </div>
+
+        <div class="card p-4">
+          <h3 class="font-semibold mb-3">Security & Audit Monitoring</h3>
+          <table class="w-full text-sm"><thead class="text-xs text-gray-500 border-b"><tr><th class="text-left py-2">Metric</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+          <tr class="border-b"><td class="py-2">Failed Login Attempts</td><td>12 Today</td><td><button onclick="openActionDialog('Review Security Logs')" class="text-green-700">Review</button></td></tr>
+          <tr class="border-b"><td class="py-2">Data Validation Errors</td><td>18 Pending</td><td><button onclick="openActionDialog('Resolve Data Issues')" class="text-green-700">Resolve</button></td></tr>
+          <tr><td class="py-2">User Access Requests</td><td>5 Pending</td><td><button onclick="openActionDialog('Approve Access Request')" class="text-green-700">Manage</button></td></tr>
+          </tbody></table>
+        </div>`;
+    }
+
+// ---------- ACTION INBOX ----------
+    function renderInbox() {
+      return `
+        <div class="mb-4 flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-semibold">Action Inbox</h2>
+            <p class="text-sm text-gray-500">Cases requiring review · AI findings only flag for verification</p>
+          </div>
+          <div class="flex gap-2">
+            <select class="border rounded-lg px-3 py-2 text-sm"><option>All Categories</option><option>Cost</option><option>Delay</option><option>Similarity</option><option>Compliance</option></select>
+            <select class="border rounded-lg px-3 py-2 text-sm"><option>All Severity</option><option>High</option><option>Medium</option><option>Low</option></select>
+          </div>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                <th class="text-left px-4 py-3">Case ID</th>
+                <th class="text-left">Work Name</th>
+                <th class="text-left">Location</th>
+                <th class="text-right">Amount (₹)</th>
+                <th class="text-left">Status</th>
+                <th class="text-left">Reason</th>
+                <th class="text-left">Severity</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cases.map(c => `
+                <tr class="border-t border-gray-100 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-mono text-xs">${c.id}</td>
+                  <td class="font-medium">${c.work}</td>
+                  <td>${c.location}</td>
+                  <td class="text-right">${(c.amount/100000).toFixed(2)} L</td>
+                  <td><span class="status-badge ${c.status.includes('Completed') ? 'bg-green-100 text-green-800' : c.status.includes('Inspection') ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}">${c.status}</span></td>
+                  <td class="text-xs text-gray-600 max-w-xs truncate">${c.reason}</td>
+                  <td><span class="status-badge ${c.severity==='high'?'bg-red-100 text-red-800':c.severity==='medium'?'bg-yellow-100 text-yellow-800':'bg-gray-100 text-gray-700'}">${c.severity}</span></td>
+                  <td><button onclick="openCase('${c.id}')" class="text-green-700 font-medium text-xs hover:underline">Open Case →</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // ---------- CASE DETAIL ----------
+    function openCase(id) {
+      currentCase = cases.find(c => c.id === id) || cases[0];
+      navigate('case');
+    }
+
+    function renderCaseDetail(c) {
+      if (!c) c = cases[0];
+      return `
+        <div class="mb-4 flex items-center gap-2 text-sm">
+          <button onclick="navigate('inbox')" class="text-green-700 hover:underline">← Action Inbox</button>
+          <span class="text-gray-400">/</span>
+          <span class="font-medium">${c.id}</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-4 col-span-2">
+            <div class="flex justify-between items-start">
+              <div>
+                <h2 class="text-xl font-semibold">${c.work}</h2>
+                <p class="text-sm text-gray-500 mt-1">${c.location} · ${c.state} · ${c.ida}</p>
+                <p class="text-xs text-gray-400 mt-1">Work ID: ${c.workId} · MP: ${c.mp}</p>
+              </div>
+              <span class="status-badge ${c.severity==='high'?'bg-red-100 text-red-800':'bg-yellow-100 text-yellow-800'} text-sm">${c.severity.toUpperCase()} PRIORITY</span>
+            </div>
+            <div class="mt-4 grid grid-cols-4 gap-4 text-sm">
+              <div><div class="text-xs text-gray-500">Recommended</div><div class="font-semibold">₹${(c.recommended/100000).toFixed(2)} L</div></div>
+              <div><div class="text-xs text-gray-500">Sanctioned</div><div class="font-semibold">₹${(c.sanctioned/100000).toFixed(2)} L</div></div>
+              <div><div class="text-xs text-gray-500">Disbursed</div><div class="font-semibold">₹${(c.disbursed/100000).toFixed(2)} L</div></div>
+              <div><div class="text-xs text-gray-500">Status</div><div class="font-semibold">${c.status}</div></div>
+            </div>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Actions</h3>
+            <div class="space-y-2">
+              <button onclick="openActionDialog('Request Clarification')" class="w-full text-left px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm">Request Clarification</button>
+              <button onclick="scheduleInspectionFromCase()" class="w-full text-left px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm bg-green-50 border-green-200 text-green-800 font-medium">Schedule Inspection</button>
+              <button onclick="openActionDialog('Escalate Case')" class="w-full text-left px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm">Escalate to State</button>
+              <button onclick="openActionDialog('Mark Resolved')" class="w-full text-left px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm">Mark Resolved</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <!-- Lifecycle Timeline -->
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-4">Work Lifecycle Timeline</h3>
+            <div class="space-y-4 relative before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
+              <div class="flex gap-3 relative"><div class="timeline-dot bg-green-500 mt-1 z-10"></div><div><div class="text-sm font-medium">Recommended</div><div class="text-xs text-gray-500">14-Jun-2024 · District Collector</div></div></div>
+              <div class="flex gap-3 relative"><div class="timeline-dot bg-green-500 mt-1 z-10"></div><div><div class="text-sm font-medium">Sanctioned</div><div class="text-xs text-gray-500">22-Jul-2024 · Sanction Amount ₹${(c.sanctioned/100000).toFixed(2)} L</div></div></div>
+              <div class="flex gap-3 relative"><div class="timeline-dot bg-blue-500 mt-1 z-10"></div><div><div class="text-sm font-medium">Vendor Identified</div><div class="text-xs text-gray-500">05-Aug-2024</div></div></div>
+              <div class="flex gap-3 relative"><div class="timeline-dot bg-yellow-500 mt-1 z-10"></div><div><div class="text-sm font-medium">Work In Progress</div><div class="text-xs text-gray-500">Current stage · ${c.delayDays} days beyond normative</div></div></div>
+              <div class="flex gap-3 relative"><div class="timeline-dot bg-gray-300 mt-1 z-10"></div><div><div class="text-sm text-gray-400">Physical Inspection</div><div class="text-xs text-gray-400">Pending</div></div></div>
+              <div class="flex gap-3 relative"><div class="timeline-dot bg-gray-300 mt-1 z-10"></div><div><div class="text-sm text-gray-400">Completion & UC</div><div class="text-xs text-gray-400">Pending</div></div></div>
+            </div>
+          </div>
+
+          <!-- AI Explanation -->
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Review Explanation & Evidence</h3>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-800">
+              <strong>Note:</strong> AI does not declare fraud. Findings are for review, verification and compliance checks only.
+            </div>
+            <div class="space-y-3 text-sm">
+              <div class="p-3 bg-red-50 rounded-lg">
+                <div class="font-medium text-red-800">Cost Variation</div>
+                <p class="text-xs text-gray-600 mt-1">Sanctioned amount is <strong>${Math.round((c.sanctioned/c.recommended-1)*100)}%</strong> higher than recommended estimate. Similar works (n=${c.similarCount}) in the district average ₹${(c.recommended/100000).toFixed(2)} L.</p>
+              </div>
+              <div class="p-3 bg-yellow-50 rounded-lg">
+                <div class="font-medium text-yellow-800">Delay Pattern</div>
+                <p class="text-xs text-gray-600 mt-1">Current stage has exceeded normative timeline by <strong>${c.delayDays} days</strong>. Peer works of same category complete this stage in 20–28 days.</p>
+              </div>
+              <div class="p-3 bg-blue-50 rounded-lg">
+                <div class="font-medium text-blue-800">Similar Works Comparison</div>
+                <p class="text-xs text-gray-600 mt-1">${c.similarCount} similar works found within 15 km radius / same work category. Cost variance and timeline compared for outlier detection.</p>
+              </div>
+              ${c.missingDocs.length ? `<div class="p-3 bg-purple-50 rounded-lg"><div class="font-medium text-purple-800">Missing Documentation</div><p class="text-xs text-gray-600 mt-1">Required documents not uploaded: <strong>${c.missingDocs.join(', ')}</strong>. Compliance check needed before further disbursement.</p></div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-3">Documents</h3>
+          <div class="flex gap-3 flex-wrap">
+            <span class="px-3 py-1.5 bg-green-50 text-green-800 rounded text-xs border border-green-200">✓ Recommendation Letter</span>
+            <span class="px-3 py-1.5 bg-green-50 text-green-800 rounded text-xs border border-green-200">✓ Sanction Order</span>
+            <span class="px-3 py-1.5 bg-yellow-50 text-yellow-800 rounded text-xs border border-yellow-200">○ BOQ (Pending)</span>
+            <span class="px-3 py-1.5 bg-yellow-50 text-yellow-800 rounded text-xs border border-yellow-200">○ Geo-tag Photo (Pending)</span>
+            <span class="px-3 py-1.5 bg-gray-50 text-gray-500 rounded text-xs border">○ UC / Completion Certificate</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function scheduleInspectionFromCase() {
+      alert('Inspection scheduled for ' + (currentCase ? currentCase.work : 'selected work') + '.\nRecommended date added to Inspection Planner.');
+      navigate('inspections');
+    }
+
+    // ---------- INSPECTIONS ----------
+    function renderInspections() {
+      return `
+        <div class="mb-4 flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-semibold">Inspection Planner</h2>
+            <p class="text-sm text-gray-500">Recommended inspections based on AI findings · Schedule & track visits</p>
+          </div>
+          <button onclick="openActionDialog('Schedule New Inspection')" class="bg-green-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-800">+ Schedule Visit</button>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                <th class="text-left px-4 py-3">Inspection ID</th>
+                <th class="text-left">Work</th>
+                <th class="text-left">Location</th>
+                <th class="text-left">Recommended Date</th>
+                <th class="text-left">Priority</th>
+                <th class="text-left">Status</th>
+                <th class="text-left">Reason</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${inspections.map(i => `
+                <tr class="border-t border-gray-100">
+                  <td class="px-4 py-3 font-mono text-xs">${i.id}</td>
+                  <td class="font-medium">${i.work}</td>
+                  <td>${i.location}</td>
+                  <td>${i.recommendedDate}</td>
+                  <td><span class="status-badge ${i.priority==='High'?'bg-red-100 text-red-800':'bg-yellow-100 text-yellow-800'}">${i.priority}</span></td>
+                  <td><span class="status-badge ${i.status==='Scheduled'?'bg-blue-100 text-blue-800':i.status==='Recommended'?'bg-purple-100 text-purple-800':'bg-gray-100 text-gray-700'}">${i.status}</span></td>
+                  <td class="text-xs text-gray-600">${i.reason}</td>
+                  <td>
+                    <button onclick="openActionDialog('Inspection Scheduled')" class="text-green-700 text-xs hover:underline mr-2">Schedule</button>
+                    <button onclick="openActionDialog('Update Inspection Status')" class="text-gray-600 text-xs hover:underline">Update</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // ---------- MONTHLY REVIEW ----------
+    function renderReview() {
+      return `
+        <div class="mb-4"><h2 class="text-xl font-semibold">Monthly Review — September 2025</h2><p class="text-sm text-gray-500">Open cases · Resolved · Inspection progress · Recurring issues</p></div>
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="card p-4 text-center"><div class="text-3xl font-bold text-red-600">8</div><div class="text-xs text-gray-500 mt-1">Open Cases</div></div>
+          <div class="card p-4 text-center"><div class="text-3xl font-bold text-green-600">14</div><div class="text-xs text-gray-500 mt-1">Resolved this month</div></div>
+          <div class="card p-4 text-center"><div class="text-3xl font-bold text-blue-600">6/9</div><div class="text-xs text-gray-500 mt-1">Inspections completed</div></div>
+          <div class="card p-4 text-center"><div class="text-3xl font-bold text-yellow-600">3</div><div class="text-xs text-gray-500 mt-1">Recurring issues</div></div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Case Resolution Trend</h3>
+            <canvas id="reviewChart" height="180"></canvas>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-3">Recurring Issues</h3>
+            <ul class="text-sm space-y-2">
+              <li class="flex justify-between border-b pb-2"><span>Missing BOQ / Tender docs</span><span class="font-medium">12 instances</span></li>
+              <li class="flex justify-between border-b pb-2"><span>Cost > 25% of similar works</span><span class="font-medium">5 instances</span></li>
+              <li class="flex justify-between border-b pb-2"><span>Delay > 30 days normative</span><span class="font-medium">7 instances</span></li>
+              <li class="flex justify-between"><span>Possible work splitting</span><span class="font-medium">3 clusters</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-semibold text-sm">Report Preview</h3>
+            <button onclick="downloadReport()" class="text-sm bg-navy-800 text-white px-3 py-1.5 rounded">Download PDF</button>
+          </div>
+          <div class="bg-gray-50 p-4 rounded text-sm text-gray-600 border border-dashed">
+            <p class="font-medium text-navy-900 mb-2">NigraniSetu — District Monthly Review (Sehore) · Sep 2025</p>
+            <p>Summary: 8 open attention cases, 14 resolved. Inspection completion rate 67%. Primary drivers of attention: cost variation (3), delay (2), similarity (2), documentation (1). Recommended actions: prioritise inspections for high-severity cost cases; issue advisory to IDAs on BOQ submission timelines.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- WORKS MODULE ----------
+    function renderWorks() {
+      const roleConfig = {
+        district: {
+          title: 'District Works Registry',
+          subtitle: 'District-level execution monitoring: ongoing works, completed assets, delays and field verification.',
+          cols: ['Work ID','Project Name','Village / Location','Category','Amount','Status','Progress','Action'],
+          rows: [
+            ['MPLADS-2025-0142','Community Hall Construction','Rampur Village','Community Asset','₹25 L','Ongoing','62%','Inspect'],
+            ['MPLADS-2025-0187','Road Repair Work','Kolar Block','Road Infrastructure','₹40 L','Completed','100%','View'],
+            ['MPLADS-2025-0211','Anganwadi Building','Sehore','Social Infrastructure','₹18 L','Delayed','38%','Review'],
+            ['MPLADS-2025-0234','Water Supply Scheme','Berasia','Basic Amenity','₹35 L','Inspection Due','85%','Schedule'],
+            ['MPLADS-2025-0291','School Renovation','Sanchi','Education Asset','₹22 L','Verification Needed','90%','Check']
+          ]
+        },
+        state: {
+          title: 'State Works Monitoring Registry',
+          subtitle: 'State authority view: district comparison, fund utilisation, delayed works and implementation agency performance.',
+          cols: ['District','Major Work Category','Works Count','Utilisation','Status','Attention'],
+          rows: [
+            ['Bhopal','Road + Community Assets','312','81%','Active','12 delayed works'],
+            ['Sehore','Education + Health Assets','248','72%','Review Needed','8 compliance checks'],
+            ['Indore','Infrastructure Projects','289','75%','Healthy','3 pending updates'],
+            ['Jabalpur','Water + Roads','201','69%','Delayed','15 works requiring review'],
+            ['Gwalior','Public Utility Works','176','78%','Healthy','2 document gaps']
+          ]
+        },
+        mospi: {
+          title: 'National MPLADS Works Intelligence Registry',
+          subtitle: 'MoSPI view: nationwide monitoring of trends, high-attention regions, utilisation patterns and policy-level review.',
+          cols: ['State','Work Category','Total Works','Delayed','Cost Alerts','Review Priority'],
+          rows: [
+            ['Uttar Pradesh','Road & Civic Infrastructure','18,202','312','84','High'],
+            ['Bihar','Community & Basic Amenities','14,980','287','71','High'],
+            ['Maharashtra','Education & Health Assets','11,524','198','54','Medium'],
+            ['Madhya Pradesh','Mixed Development Works','4,812','156','32','Medium'],
+            ['Tamil Nadu','Public Utility Assets','6,473','97','18','Low']
+          ]
+        },
+        mp: {
+          title: 'Constituency Works Dashboard',
+          subtitle: 'MP view: recommended works, sanctioned projects, execution progress and constituency development status.',
+          cols: ['Work ID','Recommended Work','Area','Sanction Amount','Current Stage','Progress'],
+          rows: [
+            ['MPLADS-2025-0142','Community Hall','Rampur','₹25 L','Execution','62%'],
+            ['MPLADS-2025-0187','Road Construction','Kolar','₹40 L','Completed','100%'],
+            ['MPLADS-2025-0211','Anganwadi Centre','Sehore','₹18 L','Delayed','38%'],
+            ['MPLADS-2025-0234','Water Supply Scheme','Berasia','₹35 L','Execution','85%'],
+            ['MPLADS-2025-0291','School Renovation','Sanchi','₹22 L','Review','90%']
+          ]
+        },
+        superadmin: {
+          title: 'Platform-wide Works Control Registry',
+          subtitle: 'Administrative view: system coverage, data quality, workflow monitoring and access control.',
+          cols: ['Module','Coverage','Data Sync','Status','Action'],
+          rows: [
+            ['Projects Database','1.24 L works','2 hrs ago','Healthy','Monitor'],
+            ['Expenditure Records','84K+ records','1 hr ago','Healthy','Validate'],
+            ['Document Repository','Tender/BOQ files','3 hrs ago','Review','Check'],
+            ['AI Alerts','Duplicate + Cost + Delay','30 min ago','Active','Monitor'],
+            ['User Access Logs','All authorities','10 min ago','Healthy','Audit']
+          ]
+        }
+      };
+
+      const cfg = roleConfig[currentRole] || roleConfig.district;
+      return `
+        <div class="mb-4 flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-semibold">${cfg.title}</h2>
+            <p class="text-sm text-gray-500">${cfg.subtitle}</p>
+          </div>
+          <input type="text" placeholder="Search works, locations, agencies..." class="border rounded-lg px-4 py-2 text-sm w-80" />
+        </div>
+        <div class="grid grid-cols-4 gap-4 mb-5">
+          <div class="card p-4"><div class="text-xs text-gray-500">Ongoing</div><div class="text-2xl font-bold">${currentRole==='mospi'?'41,210':'82'}</div></div>
+          <div class="card p-4"><div class="text-xs text-gray-500">Completed</div><div class="text-2xl font-bold">${currentRole==='mospi'?'68,420':'136'}</div></div>
+          <div class="card p-4"><div class="text-xs text-gray-500">Delayed / Review</div><div class="text-2xl font-bold">${currentRole==='mospi'?'14,950':'30'}</div></div>
+          <div class="card p-4"><div class="text-xs text-gray-500">AI Attention</div><div class="text-2xl font-bold">${currentRole==='mospi'?'1842':'24'}</div></div>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs text-gray-500"><tr>${cfg.cols.map(c=>`<th class="text-left px-4 py-3">${c}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${cfg.rows.map(r=>`<tr class="border-t hover:bg-gray-50">${r.map(x=>`<td class="px-4 py-3">${x}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    // ---------- AI ARCHITECTURE ----------
+    function renderAIArch() {
+      return `
+        <div class="mb-4">
+          <h2 class="text-xl font-semibold">AI Architecture</h2>
+          <p class="text-sm text-gray-500">How NigraniSetu generates explainable findings — no fraud declarations</p>
+        </div>
+        <div class="card p-6 mb-6">
+          <div class="flex flex-wrap items-center justify-center gap-2 text-sm">
+            <div class="px-4 py-3 bg-navy-800 text-white rounded-lg font-medium">MPLADS Data</div>
+            <span class="text-gray-400">→</span>
+            <div class="px-4 py-3 bg-blue-100 text-blue-900 rounded-lg font-medium">Data Cleaning</div>
+            <span class="text-gray-400">→</span>
+            <div class="px-4 py-3 bg-blue-100 text-blue-900 rounded-lg font-medium">Feature Engineering</div>
+            <span class="text-gray-400">→</span>
+            <div class="px-4 py-3 bg-green-100 text-green-900 rounded-lg font-medium">Rule Engine</div>
+            <span class="text-gray-400">→</span>
+            <div class="px-4 py-3 bg-green-100 text-green-900 rounded-lg font-medium">Similarity Engine</div>
+            <span class="text-gray-400">→</span>
+            <div class="px-4 py-3 bg-purple-100 text-purple-900 rounded-lg font-medium">Isolation Forest</div>
+            <span class="text-gray-400">→</span>
+            <div class="px-4 py-3 bg-amber-100 text-amber-900 rounded-lg font-medium">Explainable Findings</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-2 text-green-800">1. Rule Engine</h3>
+            <p class="text-xs text-gray-600">Guideline compliance checks based on MPLADS guidelines: work category limits, prohibited works, documentation requirements, fund release conditions. Flags: <em>Compliance check needed</em>.</p>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-2 text-green-800">2. Similarity Engine</h3>
+            <p class="text-xs text-gray-600">Compares works by category, location (geo-proximity), amount band and timeline. Detects possible duplicates or work splitting. Flags: <em>Unusual pattern detected / Review required</em>.</p>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-semibold text-sm mb-2 text-green-800">3. Anomaly Detection</h3>
+            <p class="text-xs text-gray-600">Isolation Forest model on cost, delay and execution features. Outputs outlier scores with SHAP-style explanations. Flags: <em>Verification required</em>. Never labels “fraud”.</p>
+          </div>
+        </div>
+        <div class="card p-4 mt-4">
+          <h3 class="font-semibold text-sm mb-2">Output Vocabulary (Human-in-the-loop)</h3>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full">Review required</span>
+            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full">Unusual pattern detected</span>
+            <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full">Compliance check needed</span>
+            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full">Verification required</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderUsers() {
+      return `<div class="card p-6"><h2 class="font-semibold mb-4">User Management</h2><p class="text-sm text-gray-500">Role assignment, access control and audit logs for Super Admin.</p>
+        <table class="w-full text-sm mt-4"><thead class="text-xs text-gray-500 border-b"><tr><th class="text-left py-2">User</th><th class="text-left">Role</th><th class="text-left">State/District</th><th class="text-left">Last Active</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="py-2">Siya Sharma</td><td>District Admin</td><td>Sehore, MP</td><td>Today</td></tr>
+          <tr class="border-b"><td class="py-2">Rajesh Kumar</td><td>State Nodal</td><td>Madhya Pradesh</td><td>Yesterday</td></tr>
+          <tr><td class="py-2">Dr. Priya Mehta</td><td>MoSPI JS</td><td>Central</td><td>2 days ago</td></tr>
+        </tbody></table></div>`;
+    }
+
+    function renderDataQuality() {
+      return `<div class="card p-6"><h2 class="font-semibold mb-4">Data Quality Dashboard</h2>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="p-4 bg-green-50 rounded-lg text-center"><div class="text-2xl font-bold text-green-700">94%</div><div class="text-xs">Completeness</div></div>
+          <div class="p-4 bg-yellow-50 rounded-lg text-center"><div class="text-2xl font-bold text-yellow-700">89%</div><div class="text-xs">Consistency</div></div>
+          <div class="p-4 bg-green-50 rounded-lg text-center"><div class="text-2xl font-bold text-green-700">97%</div><div class="text-xs">Timeliness</div></div>
+        </div>
+        <p class="text-sm text-gray-600">Source systems: MPLADS portal exports, IDA uploads, payment gateway reconciliations. Daily validation jobs flag missing work IDs, amount mismatches and status inconsistencies.</p></div>`;
+    }
+
+    // ==================== CHARTS & MAP ====================
+    function initCharts() {
+      const destroyIfExists = (id) => {
+        const chart = Chart.getChart(id);
+        if (chart) chart.destroy();
+      };
+      const doughnutOpts = { cutout: '65%', plugins: { legend: { display: false } } };
+      const barOpts = { plugins: { legend: { display: false } } };
+
+      if (document.getElementById('statusChart')) {
+        destroyIfExists('statusChart');
+        new Chart(document.getElementById('statusChart'), {
+          type: 'doughnut',
+          data: { labels: ['Completed','Ongoing','Delayed'], datasets: [{ data: [136,82,30], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderWidth: 0 }] },
+          options: doughnutOpts
+        });
+      }
+      if (document.getElementById('fundChart')) {
+        destroyIfExists('fundChart');
+        new Chart(document.getElementById('fundChart'), {
+          type: 'bar',
+          data: { labels: ['Sanctioned','Tendered','Utilized'], datasets: [{ data: [42,31,24], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderRadius: 6 }] },
+          options: { ...barOpts, scales: { y: { beginAtZero: true, ticks: { callback: v => v + ' Cr' } } } }
+        });
+      }
+
+      if (document.getElementById('stateStatusChart')) {
+        destroyIfExists('stateStatusChart');
+        new Chart(document.getElementById('stateStatusChart'), {
+          type: 'doughnut',
+          data: { labels: ['Completed','Ongoing','Delayed'], datasets: [{ data: [2946,1422,444], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderWidth: 0 }] },
+          options: doughnutOpts
+        });
+      }
+      if (document.getElementById('stateFundChart')) {
+        destroyIfExists('stateFundChart');
+        new Chart(document.getElementById('stateFundChart'), {
+          type: 'bar',
+          data: { labels: ['Sanctioned','Tendered','Utilized'], datasets: [{ data: [487,352,331], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderRadius: 6 }] },
+          options: { ...barOpts, scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + v + ' Cr' } } } }
+        });
+      }
+
+      if (document.getElementById('mospiStatusChart')) {
+        destroyIfExists('mospiStatusChart');
+        new Chart(document.getElementById('mospiStatusChart'), {
+          type: 'doughnut',
+          data: { labels: ['Completed','Ongoing','Delayed'], datasets: [{ data: [68420,41210,14950], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderWidth: 0 }] },
+          options: doughnutOpts
+        });
+      }
+      if (document.getElementById('nationalFundChart')) {
+        destroyIfExists('nationalFundChart');
+        new Chart(document.getElementById('nationalFundChart'), {
+          type: 'bar',
+          data: { labels: ['Allocated','Sanctioned','Disbursed'], datasets: [{ data: [8318,1720,1247], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderRadius: 6 }] },
+          options: { ...barOpts, scales: { y: { ticks: { callback: v => '₹' + v + ' Cr' } } } }
+        });
+      }
+
+      if (document.getElementById('mpStatusChart')) {
+        destroyIfExists('mpStatusChart');
+        new Chart(document.getElementById('mpStatusChart'), {
+          type: 'doughnut',
+          data: { labels: ['Completed','Ongoing','Pending'], datasets: [{ data: [190,42,16], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderWidth: 0 }] },
+          options: doughnutOpts
+        });
+      }
+      if (document.getElementById('mpFundChart')) {
+        destroyIfExists('mpFundChart');
+        new Chart(document.getElementById('mpFundChart'), {
+          type: 'bar',
+          data: { labels: ['Allocated','Sanctioned','Disbursed'], datasets: [{ data: [14.7,9.82,6.41], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderRadius: 6 }] },
+          options: { ...barOpts, scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + v + ' Cr' } } } }
+        });
+      }
+
+      if (document.getElementById('superStatusChart')) {
+        destroyIfExists('superStatusChart');
+        new Chart(document.getElementById('superStatusChart'), {
+          type: 'doughnut',
+          data: { labels: ['Healthy','Active','Scheduled'], datasets: [{ data: [8,2,1], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderWidth: 0 }] },
+          options: doughnutOpts
+        });
+      }
+      if (document.getElementById('superOpsChart')) {
+        destroyIfExists('superOpsChart');
+        new Chart(document.getElementById('superOpsChart'), {
+          type: 'bar',
+          data: { labels: ['Users','States','Districts'], datasets: [{ data: [1248,36,742], backgroundColor: ['#22c55e','#3b82f6','#eab308'], borderRadius: 6 }] },
+          options: { ...barOpts, scales: { y: { beginAtZero: true } } }
+        });
+      }
+
+      const revChart = document.getElementById('reviewChart');
+      if (revChart) {
+        destroyIfExists('reviewChart');
+        new Chart(revChart, {
+          type: 'line',
+          data: { labels: ['May','Jun','Jul','Aug','Sep'], datasets: [
+            { label: 'Opened', data: [12,9,15,11,8], borderColor: '#ef4444', tension: 0.3 },
+            { label: 'Resolved', data: [8,11,10,13,14], borderColor: '#22c55e', tension: 0.3 }
+          ]},
+          options: { plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+    }
+
+    
+function initAllMaps() {
+      const mapConfigs = [
+        {
+          id: 'district-main-map',
+          center: [23.2, 77.4],
+          zoom: 9,
+          markers: [
+            { lat: 23.25, lng: 77.08, color: 'green', title: 'Community Hall - Rampur' },
+            { lat: 23.15, lng: 77.45, color: 'blue', title: 'Road - Kolar' },
+            { lat: 23.20, lng: 77.08, color: 'red', title: 'Anganwadi - Sehore' },
+            { lat: 23.45, lng: 77.55, color: 'orange', title: 'Water Supply - Berasia' },
+            { lat: 23.48, lng: 77.73, color: 'green', title: 'School - Sanchi' }
+          ]
+        },
+        {
+          id: 'state-main-map',
+          center: [23.5, 78.8],
+          zoom: 6,
+          markers: [
+            { lat: 23.2, lng: 77.4, color: 'red', title: 'Sehore - 8 open cases' },
+            { lat: 23.26, lng: 77.41, color: 'blue', title: 'Bhopal - 5 open cases' },
+            { lat: 22.72, lng: 75.86, color: 'green', title: 'Indore - healthy' },
+            { lat: 23.18, lng: 79.95, color: 'orange', title: 'Jabalpur - inspections due' },
+            { lat: 26.22, lng: 78.18, color: 'green', title: 'Gwalior - healthy' }
+          ]
+        },
+        {
+          id: 'mospi-main-map',
+          center: [22.8, 79.2],
+          zoom: 4,
+          markers: [
+            { lat: 26.85, lng: 80.95, color: 'red', title: 'Uttar Pradesh - high attention' },
+            { lat: 25.61, lng: 85.14, color: 'red', title: 'Bihar - high attention' },
+            { lat: 19.07, lng: 72.87, color: 'orange', title: 'Maharashtra - watchlist' },
+            { lat: 23.25, lng: 77.41, color: 'orange', title: 'Madhya Pradesh - medium attention' },
+            { lat: 13.08, lng: 80.27, color: 'green', title: 'Tamil Nadu - stable' }
+          ]
+        },
+        {
+          id: 'mp-main-map',
+          center: [23.23, 77.43],
+          zoom: 10,
+          markers: [
+            { lat: 23.25, lng: 77.08, color: 'blue', title: 'Rampur - Community Hall' },
+            { lat: 23.18, lng: 77.45, color: 'green', title: 'Kolar - Road Construction' },
+            { lat: 23.20, lng: 77.08, color: 'red', title: 'Sehore - Anganwadi Building' },
+            { lat: 23.45, lng: 77.55, color: 'orange', title: 'Berasia - Water Supply' },
+            { lat: 23.48, lng: 77.73, color: 'green', title: 'Sanchi - School Renovation' }
+          ]
+        },
+        {
+          id: 'super-main-map',
+          center: [22.8, 79.2],
+          zoom: 4,
+          markers: [
+            { lat: 26.85, lng: 80.95, color: 'green', title: 'UP - connected' },
+            { lat: 25.61, lng: 85.14, color: 'blue', title: 'Bihar - active' },
+            { lat: 19.07, lng: 72.87, color: 'green', title: 'Maharashtra - stable' },
+            { lat: 23.25, lng: 77.41, color: 'orange', title: 'MP - review' },
+            { lat: 13.08, lng: 80.27, color: 'green', title: 'Tamil Nadu - healthy' }
+          ]
+        }
+      ];
+
+      mapConfigs.forEach(cfg => {
+        const el = document.getElementById(cfg.id);
+        if (!el) return;
+        if (el._leaflet_id) return;
+        const map = L.map(cfg.id).setView(cfg.center, cfg.zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        cfg.markers.forEach(m => {
+          L.circleMarker([m.lat, m.lng], { radius: 8, color: m.color, fillColor: m.color, fillOpacity: 0.85, weight: 2 })
+            .addTo(map)
+            .bindPopup(m.title);
+        });
+      });
+    }
+
+    function initMap() {
+      initAllMaps();
+    }
+
+    // Reset map hook kept lightweight to preserve workflow
+    const origNavigate = navigate;
+    navigate = function(view) {
+      origNavigate(view);
+    };
+  </script>
+
+<div id="action-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+ <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl">
+  <h2 id="modal-title" class="text-xl font-semibold mb-4">Action</h2>
+  <input id="modal-reference" class="w-full border rounded-lg p-3 mb-3" placeholder="Reference ID / Work ID / Case ID" />
+  <select id="modal-status" class="w-full border rounded-lg p-3 mb-3">
+    <option>Pending Review</option><option>Approved</option><option>Rejected</option><option>Escalated</option><option>Scheduled</option>
+  </select>
+  <textarea id="modal-note" class="w-full border rounded-lg p-3 h-28 mb-4" placeholder="Enter remarks, justification or action details"></textarea>
+  <div class="flex justify-end gap-3">
+   <button onclick="closeActionModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
+   <button onclick="submitAction()" class="px-4 py-2 bg-green-700 text-white rounded-lg">Submit</button>
+  </div>
+ </div>
+</div>
+
+<script>
+let currentAction = {title:'', reference:''};
+let actionHistory = [];
+
+function openActionDialog(title, reference=''){
+ currentAction.title = title;
+ currentAction.reference = reference;
+ document.getElementById('modal-title').innerText = title;
+ document.getElementById('modal-reference').value = reference;
+ document.getElementById('modal-status').value = 'Pending Review';
+ document.getElementById('modal-note').value = '';
+ document.getElementById('action-modal').classList.remove('hidden');
+}
+function closeActionModal(){
+ document.getElementById('action-modal').classList.add('hidden');
+}
+function submitAction(){
+ const action={
+   action: currentAction.title,
+   reference: document.getElementById('modal-reference').value || 'Not Provided',
+   status: document.getElementById('modal-status').value,
+   remarks: document.getElementById('modal-note').value,
+   user: document.querySelector('.text-sm.font-medium')?.innerText || 'Authorised User',
+   time: new Date().toLocaleString()
+ };
+ actionHistory.push(action);
+ localStorage.setItem('nigranisetu_actions', JSON.stringify(actionHistory));
+ alert(action.action + ' submitted successfully for ' + action.reference);
+ closeActionModal();
+}
+
+function performWorkAction(actionName, workId){
+ openActionDialog(actionName, workId);
+}
+
+function getActionHistory(){
+ return JSON.parse(localStorage.getItem('nigranisetu_actions') || '[]');
+}
+
+function downloadReport(){
+ const {jsPDF}=window.jspdf;
+ const pdf=new jsPDF();
+ pdf.text("NigraniSetu Monitoring Report",20,20);
+ pdf.text("MPLADS Project Review Summary",20,35);
+ pdf.text("Generated from authorised dashboard",20,50);
+ pdf.save("NigraniSetu_Report.pdf");
+}
+</script>
+
+<div id="notification-drawer" class="hidden fixed right-5 top-20 bg-white shadow-xl rounded-xl p-5 w-80 z-40">
+<h3 class="font-semibold mb-3">Latest Notifications</h3>
+<div class="text-sm space-y-3">
+<div onclick="navigate('inbox')" class="notification-item">Duplicate project review pending</div>
+<div onclick="navigate('works')" class="notification-item">New project document uploaded</div>
+<div onclick="navigate('review')" class="notification-item">Monthly review available</div>
+</div>
+</div>
+
+<script>
+function toggleNotifications(){
+ document.getElementById('notification-drawer').classList.toggle('hidden');
+}
+</script>
+
+<script>
+document.addEventListener('click', function(e){
+ const btn=e.target.closest('[data-work-action]');
+ if(btn){
+   performWorkAction(btn.getAttribute('data-work-action'), btn.getAttribute('data-work-id') || 'General Work');
+ }
+});
+</script>
+</body>
+</html>
+<!-- Enhanced:
+- Role dashboards upgraded
+- Interactive maps added
+- Notifications clickable
+- Buttons connected to workflow
+- Inspection actions connected
+-->
